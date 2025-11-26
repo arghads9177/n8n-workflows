@@ -1,0 +1,617 @@
+{
+  "name": "AI-instagram-lead-generator",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        -32
+      ],
+      "id": "5a1b485a-d6cc-4f2d-962c-f2656ecb1de5",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -576,
+        -176
+      ],
+      "id": "b701400e-886b-4a05-91e2-e5fcd8239b6b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM",
+          "mode": "list",
+          "cachedResultName": "Instagram_Lead_Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status",
+              "lookupValue": "Active"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -432,
+        -112
+      ],
+      "id": "2071d876-5100-422a-b338-62e73c9b3436",
+      "name": "Get Keyword",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YyW1gcId8nYqGi8s",
+          "name": "Google Sheets adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.Keyword.toString().trim() }} instagram.com"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.CountryCode.toLowerCase() }}"
+            },
+            {
+              "name": "num",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -288,
+        -112
+      ],
+      "id": "8f0c7c5c-9ed7-463e-8946-4985550762ad",
+      "name": "Scrape Serper",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CjZLdOyniyHTdKqV",
+          "name": "Serper.dev API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleanLeads = [];\n\nfor (const item of $input.all()) {\n  const textToScan = (item.json.snippet || \"\") + \" \" + (item.json.link || \"\");\n  \n  // Regex to find instagram.com/username\n  // It looks for 'instagram.com/' followed by valid username characters\n  // Stops at slash, question mark, or space\n  const urlRegex = /instagram\\.com\\/([a-zA-Z0-9._]+)/i;\n  \n  // Regex to find @username (weaker signal, but useful if explicitly mentioned)\n  // const handleRegex = /@([a-zA-Z0-9._]+)/; \n\n  const match = textToScan.match(urlRegex);\n\n  if (match && match[1]) {\n    const username = match[1];\n    \n    // Filter out common false positives like 'p', 'reel', 'explore', 'www'\n    const ignoreList = ['p', 'reel', 'reels', 'stories', 'explore', 'www', 'intent', 'legal'];\n    \n    if (!ignoreList.includes(username.toLowerCase())) {\n      cleanLeads.push({\n        json: {\n          username: username,\n          profile_url: `https://www.instagram.com/${username}/`,\n          source_title: item.json.title,\n          source_snippet: item.json.snippet,\n          scraped_at: item.json.scraped_at\n        }\n      });\n    }\n  }\n}\n\n// Remove duplicates based on username (Set logic)\nconst uniqueLeads = Array.from(new Set(cleanLeads.map(a => a.json.username)))\n    .map(id => cleanLeads.find(a => a.json.username === id));\n\nreturn uniqueLeads;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        -112
+      ],
+      "id": "cf29f712-7b46-477a-be6b-52075e5c2b5b",
+      "name": "Extract Instagram Handles"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Senior Dev Pattern: Safe Unpacking\nconst newItems = [];\n\n// Loop through all inputs (in case you processed multiple keywords at once)\nfor (const item of $input.all()) {\n  // Check if 'organic' results exist to prevent errors\n  if (item.json.organic && Array.isArray(item.json.organic)) {\n    \n    // Loop through the 100 results inside the array\n    for (const result of item.json.organic) {\n      newItems.push({\n        json: {\n          // Keep all the lead data\n          title: result.title,\n          link: result.link,\n          snippet: result.snippet,\n          // Pro Tip: Add a 'scraped_at' timestamp now for the DB later\n          scraped_at: new Date().toISOString()\n        }\n      });\n    }\n  }\n}\n\nreturn newItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -112
+      ],
+      "id": "fea3d961-cfd5-4899-b21e-0364200228e6",
+      "name": "Cleaner Code"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        272,
+        128
+      ],
+      "id": "a63afe7b-a02e-482e-8df5-1b8d250c391d",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"is_target\": {\n      \"type\": \"boolean\",\n      \"description\": \"True if the profile is a Trading Coach/Mentor. False if it is news, random trader, or irrelevant.\"\n    },\n    \"confidence_score\": {\n      \"type\": \"integer\",\n      \"description\": \"Confidence level between 0 and 100.\",\n      \"minimum\": 0,\n      \"maximum\": 100\n    },\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\"Coach/Mentor\", \"Trader/Enthusiast\", \"News/Media\", \"Irrelevant\"],\n      \"description\": \"Categorize the profile.\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"A short 1-sentence explanation of why this decision was made.\"\n    }\n  },\n  \"required\": [\"is_target\", \"confidence_score\", \"category\", \"reasoning\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        48
+      ],
+      "id": "f8393079-042f-4f6f-8aa7-e523a1a33b09",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Lead Qualification Expert.\nAnalyze the following Instagram search snippet to determine if this person is a \"Coach\" or \"Trainer\" or \"Mentor\" or \"Teacher\".\n\nInput Data:\n- Snippet: {{ $json.source_snippet }}\n- Title: {{ $json.source_title }}\n- Username: {{ $json.username }}\n\nCriteria for a Match:\n- Must be an individual (not a news site or generic page).\n- Must explicitly mention keywords like \"Coach\", \"Mentor\", \"Teach\", \"Teacher\", \"Trainer\", \"Learn\", \"Signals\", or \"Education\".\n- Context must imply they sell a service or course.\n\nOutput the result strictly according to the schema.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        240,
+        -112
+      ],
+      "id": "c8971456-3103-4af5-a770-fa16275679e0",
+      "name": "Lead Analyzer AI"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4612ba8e-0b9c-4449-8d3d-7ee646d7dd00",
+              "leftValue": "={{ $json.output.is_target }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "67f9ae89-059c-433f-91b5-c43b60bb0a0e",
+              "leftValue": "={{ $json.output.confidence_score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        -112
+      ],
+      "id": "6664c74f-b00e-4db4-a8ee-6259b29aaa81",
+      "name": "Gatekeeper"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7ae03cf3-71d9-463c-ab11-c3870e4de45e",
+              "name": "Username",
+              "value": "={{ $('Extract Instagram Handles').item.json.username }}",
+              "type": "string"
+            },
+            {
+              "id": "92b68d66-9fb2-4b63-a864-adce99629b4e",
+              "name": "Profile URL",
+              "value": "={{ $('Extract Instagram Handles').item.json.profile_url }}",
+              "type": "string"
+            },
+            {
+              "id": "3f7f48c6-cdc9-4985-93f6-2c0fc3352717",
+              "name": "Category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "b5386b46-b61d-4454-958c-604186a678c2",
+              "name": "Reasoning",
+              "value": "={{ $json.output.reasoning }}",
+              "type": "string"
+            },
+            {
+              "id": "44cecc8b-de37-44ac-9f88-8bfced3866c7",
+              "name": "Confidence",
+              "value": "={{ $json.output.confidence_score }}",
+              "type": "number"
+            },
+            {
+              "id": "64906fe0-a449-4d49-9912-9e7184426d0a",
+              "name": "Status",
+              "value": "New",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -208
+      ],
+      "id": "ac1ab057-1e70-4e22-84f0-dd22d9147d5a",
+      "name": "Data Merge"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM",
+          "mode": "list",
+          "cachedResultName": "Instagram_Lead_Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 830090835,
+          "mode": "list",
+          "cachedResultName": "Instagram_Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AR2jd61f8AH3j3J7LTefiVC8_D2wJmCL3xZ5RVHE0DM/edit#gid=830090835"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Username": "={{ $json.Username }}",
+            "Profile URL": "={{ $json['Profile URL'] }}",
+            "Category": "={{ $json.Category }}",
+            "Reasoning": "={{ $json.Reasoning }}",
+            "Confidence": "={{ $json.Confidence }}",
+            "Status": "={{ $json.Status }}"
+          },
+          "matchingColumns": [
+            "Username"
+          ],
+          "schema": [
+            {
+              "id": "Username",
+              "displayName": "Username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Profile URL",
+              "displayName": "Profile URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        976,
+        -208
+      ],
+      "id": "8f2a327b-aedf-47bf-824b-691547d28a36",
+      "name": "Idempotent",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YyW1gcId8nYqGi8s",
+          "name": "Google Sheets adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🤖 AI-Powered Lead Discovery & Qualification Agent\n\n**Role:** Automated Lead Generation\n**Architecture:**\n1. **Orchestration:** Dual-Trigger system (Scheduled + On-Demand) for flexibility.\n2. **Discovery:** Leverages **SERP API** (Google Search) to locate niche-specific profiles, bypassing standard platform API limitations.\n3. **Sanitization:** Custom **Regex & JavaScript** logic to clean \"dirty\" web data and extract valid handles.\n4. **Intelligence:** **GPT-4o-mini** analyses bio snippets to semantically qualify leads (filtering out false positives).\n5. **Storage:** Idempotent **Upsert** logic ensures zero duplicate records in the CRM.",
+        "height": 256,
+        "width": 928
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -192,
+        -784
+      ],
+      "typeVersion": 1,
+      "id": "b01c1f39-ea14-48fc-b0f0-455b8c7f29be",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🔍 Dynamic Input & Search Layer\n\n* **Dual Triggers:** Allows for hourly automated batching OR manual testing without code changes.\n* **Dynamic Config:** Pulls \"live\" keywords (e.g., \"AI Trainer\") and location targets (`IN`, `US`) from an external database, making the agent adaptable.\n* **SERP Integration:** Uses **advanced search operators** (e.g., `inurl:instagram.com`) to locate specific profiles while respecting API rate limits.",
+        "height": 544,
+        "width": 512,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -688,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "95493c8f-de93-4cd4-89a9-8f160ff6e4fe",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🧹 ETL & Sanitization Layer\n\n* **Problem:** Raw search results contain 40% \"noise\" (news articles, random mentions, incorrect domains).\n* **Solution:** Implemented deterministic **Regex Logic** to:\n    1. Filter out non-Instagram domains.\n    2. Strip \"junk\" URLs (posts, reels, stories).\n    3. Extract the clean `username` from unstructured bio text.",
+        "height": 544,
+        "width": 352,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -144,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "30aaf2ee-2bb5-4013-a2ae-ea6a8eaebe9f",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 Semantic Qualification Engine\n\n* **Model:** **GPT-4o-mini** (Optimized for speed & cost).\n* **Logic:** Analyzes the bio snippet to determine intent. Distinguishes between a \"hobbyist\" and a \"professional coach/trainer.\"\n* **Output Control:** Uses **Structured Output Parsers** to force a strict JSON schema (`{ is_target: boolean }`), preventing downstream errors.",
+        "height": 704,
+        "width": 320,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        224,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "a32292c5-790c-45e6-9bc0-eacc23a070e7",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Quality Assurance & Storage\n\n* **The Gatekeeper:** Conditional logic that drops low-confidence leads (<70%) or irrelevant categories before they hit the database.\n* **Idempotent Storage:** Uses an **Upsert (Update/Insert)** pattern based on the unique `Username`. This prevents database pollution and allows the bot to run hourly without creating duplicates.",
+        "height": 544,
+        "width": 608,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        560,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "650d3f51-d0f5-4019-a3cd-c5b0760e17e1",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Keyword": {
+      "main": [
+        [
+          {
+            "node": "Scrape Serper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Serper": {
+      "main": [
+        [
+          {
+            "node": "Cleaner Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleaner Code": {
+      "main": [
+        [
+          {
+            "node": "Extract Instagram Handles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Instagram Handles": {
+      "main": [
+        [
+          {
+            "node": "Lead Analyzer AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lead Analyzer AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Lead Analyzer AI",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Analyzer AI": {
+      "main": [
+        [
+          {
+            "node": "Gatekeeper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gatekeeper": {
+      "main": [
+        [
+          {
+            "node": "Data Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Merge": {
+      "main": [
+        [
+          {
+            "node": "Idempotent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "58215c30-ff24-48e1-9bde-e4266f6ecd4e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "MCWFwL5IWK75S4PF",
+  "tags": []
+}

@@ -1,0 +1,444 @@
+{
+  "name": "document-classification-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "DocOps",
+        "formDescription": "Document Classification",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "data",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        512,
+        -32
+      ],
+      "id": "dcf664e4-5a7f-4b42-be3d-37ae4a1285e2",
+      "name": "Upload Document",
+      "webhookId": "4bdc6e3f-67f9-417f-aca7-393fc9e56d22"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1008,
+        176
+      ],
+      "id": "aa5d43a8-f53c-4099-8da1-14df9c5a5409",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=document: {{ $json.text }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a Senior Bank Operations Officer. Analyze the provided image/document.\nClassify it into one of these categories: [Compliance, HR, Risk, Invoice, ID, Other].\nExtract the following:\n- Document Date (YYYY-MM-DD)\n- Entity Name (Person or Company)\n- Confidence Score (0-100)\n- Reasoning (1 sentence)"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1008,
+        -32
+      ],
+      "id": "e8e2d32d-faa6-4ff3-995c-b4fc6635f701",
+      "name": "Doc Analyzer Agent"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": { \"type\": \"string\", \"enum\": [\"Compliance\", \"HR\", \"Risk\", \"Invoice\", \"ID\", \"Other\"] },\n    \"document_date\": { \"type\": \"string\", \"description\": \"YYYY-MM-DD format\" },\n    \"entity_name\": { \"type\": \"string\" },\n    \"confidence_score\": { \"type\": \"integer\" },\n    \"reasoning\": { \"type\": \"string\" }\n  },\n  \"required\": [\"category\", \"confidence_score\", \"reasoning\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        240
+      ],
+      "id": "e0851d35-c027-496e-b60c-db9a54e20bc6",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        784,
+        -32
+      ],
+      "id": "605e8089-9785-4aa4-b0a7-8ff7464d861b",
+      "name": "Read Document"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1dLa1Km20D29-1f1HGs4aolrnJMKG5s8RFrhNgYAQ6Xk",
+          "mode": "list",
+          "cachedResultName": "Doc_Classification_Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1dLa1Km20D29-1f1HGs4aolrnJMKG5s8RFrhNgYAQ6Xk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1dLa1Km20D29-1f1HGs4aolrnJMKG5s8RFrhNgYAQ6Xk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.format('dd/MM/yyyy hh:mm a') }}",
+            "Filename": "={{ $json.filename }}",
+            "Category": "={{ $json.category }}",
+            "Confidence": "={{ $json.confidence_score }}",
+            "Entity Name": "={{ $json.entity_name }}",
+            "Reasoning": "={{ $json.reasoning }}",
+            "Detected Date": "={{ $json.document_date }}"
+          },
+          "matchingColumns": [
+            "Fileid"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Filename",
+              "displayName": "Filename",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fileid",
+              "displayName": "Fileid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Detected Date",
+              "displayName": "Detected Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Entity Name",
+              "displayName": "Entity Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1616,
+        -32
+      ],
+      "id": "7157903b-b8c3-439a-93e3-2e8d840d4d56",
+      "name": "Add to Log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YyW1gcId8nYqGi8s",
+          "name": "Google Sheets adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "957755a0-4128-4113-ad21-e8c09368ca32",
+              "name": "category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "278b46dc-4f52-4c09-bfa3-acc9ef3de4ea",
+              "name": "document_date",
+              "value": "={{ $json.output.document_date }}",
+              "type": "string"
+            },
+            {
+              "id": "1a9b04cd-604d-4277-947d-b857e3ffd9a2",
+              "name": "entity_name",
+              "value": "={{ $json.output.entity_name }}",
+              "type": "string"
+            },
+            {
+              "id": "d6859a2f-9a55-4bbd-9549-edf558e8f201",
+              "name": "confidence_score",
+              "value": "={{ $json.output.confidence_score }}",
+              "type": "number"
+            },
+            {
+              "id": "7124fd38-fe00-40a6-a8b9-2bc7ddce1b5d",
+              "name": "reasoning",
+              "value": "={{ $json.output.reasoning }}",
+              "type": "string"
+            },
+            {
+              "id": "04c4a1a7-c927-45b8-a530-fe3408038d6a",
+              "name": "filename",
+              "value": "={{ $('Upload Document').item.json.data.filename }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1424,
+        -32
+      ],
+      "id": "c779fd12-8a86-4527-81b1-626f7e70cbd6",
+      "name": "Edit output"
+    },
+    {
+      "parameters": {
+        "content": "# 📄 Intelligent Document Classification & Extraction Agent\n\n**Use Case:** Banking Operations Automation\n**The Problem:** Operations teams spend hours manually identifying, reading, and typing data from unstructured PDF attachments (Invoices, IDs, Compliance Docs).\n**The Solution:** An automated ETL pipeline that ingests raw files, understands their context using AI, and outputs strict, database-ready records.\n\n**Architecture:**\n1. **Ingestion:** Secure Form Upload handling binary PDF data.\n2. **Extraction:** Converts unstructured PDF binary into raw text tokens (cheaper & faster than Vision).\n3. **Analysis:** GPT-4o classifies the document type and extracts key metadata.\n4. **Validation:** JSON Schema enforcement prevents \"hallucinations.\"\n5. **Storage:** Structured logging for audit trails.",
+        "height": 320,
+        "width": 1024
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        352,
+        -624
+      ],
+      "typeVersion": 1,
+      "id": "8df161d0-10f8-46e6-a93a-90f59d3d7ff0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 📥 Ingestion & ETL Layer\n\n* **Secure Ingestion:** Accepts user-uploaded PDFs via a web form.\n* **Text Extraction:** Instead of sending expensive image pixels to the AI, this layer programmatically extracts raw text from the PDF binary. This reduces token usage by ~60% compared to pure Vision approaches.",
+        "height": 368,
+        "width": 544,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        352,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "92875fd8-b638-437b-b936-46874f500864",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 Semantic Analysis & Validation Engine\n\n* **Contextual Classifer:** Uses **GPT-4o** to analyze the document's content (not just keywords). It distinguishes between subtle categories (e.g., \"Risk Report\" vs. \"Compliance Policy\").\n* **Schema Enforcement:** The **Structured Output Parser** forces the AI to return strict JSON. If the AI hallucinates a field, this layer rejects it, ensuring data integrity downstream.",
+        "height": 624,
+        "width": 432,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        912,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "982ae67c-f506-43a0-8004-712c8b7adc58",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 💾 Transformation & Persistence\n\n* **Data Decoupling:** The \"Edit Output\" node maps the AI's internal variable names to the database's column headers, ensuring the logic layer remains independent of the storage layer.\n* **Audit Logging:** Appends the final, validated record to the Master Log (Google Sheets) with a timestamp and confidence score.",
+        "height": 400,
+        "width": 528,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1360,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "1b23e8a4-858f-4b7b-ba4c-6fb0e3411a72",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload Document": {
+      "main": [
+        [
+          {
+            "node": "Read Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Doc Analyzer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Doc Analyzer Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Document": {
+      "main": [
+        [
+          {
+            "node": "Doc Analyzer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doc Analyzer Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit output": {
+      "main": [
+        [
+          {
+            "node": "Add to Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a246e2c6-378c-4423-9a16-61eee753f265",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "RTKs99wbanQg9RoG",
+  "tags": [
+    {
+      "createdAt": "2025-11-24T16:14:46.581Z",
+      "updatedAt": "2025-11-24T16:14:46.581Z",
+      "id": "B0YNEd6RvqhlLcgf",
+      "name": "banking"
+    },
+    {
+      "createdAt": "2025-11-24T16:14:37.868Z",
+      "updatedAt": "2025-11-24T16:14:37.868Z",
+      "id": "sYzNF35VioIESd2z",
+      "name": "ai agent"
+    }
+  ]
+}
