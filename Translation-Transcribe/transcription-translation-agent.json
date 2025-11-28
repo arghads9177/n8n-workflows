@@ -1,0 +1,575 @@
+{
+  "name": "transcription-translation-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Translation & Transcription Entry",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "file_input",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "target_language",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Hindi"
+                  },
+                  {
+                    "option": "Bengali"
+                  },
+                  {
+                    "option": "English"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "formality",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Professional Email"
+                  },
+                  {
+                    "option": "Casual Message"
+                  },
+                  {
+                    "option": "Formal Report"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "recipient_email",
+              "fieldType": "email",
+              "placeholder": "Enter Recipient Email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -1008,
+        -160
+      ],
+      "id": "d4872910-512b-47e1-ada0-7110378e76ef",
+      "name": "Receive File",
+      "webhookId": "50b2267c-4f3d-4071-bafc-4e8244616d35"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.file_input.mimetype }}",
+                    "rightValue": "text/plain",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ce58845d-f201-48e8-b044-fa22ceebe25c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "963642aa-2b35-4194-834c-1daf06dd3a70",
+                    "leftValue": "={{ $json.file_input.mimetype }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c616da30-58e1-4ae9-b749-93a58761beec",
+                    "leftValue": "={{ $json.file_input.mimetype }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -784,
+        -176
+      ],
+      "id": "766deba3-bb3b-4d53-8da1-08fb18b8ac95",
+      "name": "File Type Router"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "file_input",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        -288
+      ],
+      "id": "64459621-0022-4849-84f2-88545deae5d3",
+      "name": "Read Text File"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file_input",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        -160
+      ],
+      "id": "2ac292a7-9a50-4aff-867a-e59896eb6651",
+      "name": "Read PDF File"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "file_input",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        -16
+      ],
+      "id": "8ba38796-7053-4360-82e2-3d8dcecfab1e",
+      "name": "Transcribe Audio",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6c4c92bb-ced9-4cb1-bea1-c77f5ec8ef93",
+              "name": "final_context",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        -160
+      ],
+      "id": "6f9a7528-e253-4842-8957-30335a5b6c0b",
+      "name": "Set PDF"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6c4c92bb-ced9-4cb1-bea1-c77f5ec8ef93",
+              "name": "final_context",
+              "value": "={{ $json.data }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        -288
+      ],
+      "id": "446004a5-473b-42dd-97fc-4a92facf5f11",
+      "name": "Set Text"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6c4c92bb-ced9-4cb1-bea1-c77f5ec8ef93",
+              "name": "final_context",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        -16
+      ],
+      "id": "c2b2b27b-2f04-4313-9ced-66113753c558",
+      "name": "Set Audio"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -112,
+        -176
+      ],
+      "id": "549beb4c-a7b9-40af-b023-83b063dd89cd",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert translator and front-end developer.\n\n### INPUT DATA\n- **Source Text:** \"{{ $json.final_context }}\"\n- **Target Language:** \"{{ $('Receive File').item.json.target_language }}\"\n- **Target Formality:** \"{{ $('Receive File').item.json.formality }}\"\n\n### CRITICAL RULES\n1. **LANGUAGE PRIORITY:** The final output MUST be written entirely in **{{ $('Receive File').item.json.target_language }}**. Do not output English (unless English is the target).\n2. **TONE ADAPTATION:** Adapt the style to match the \"**Target Formality**\".\n3. **HTML FORMATTING:** Return raw HTML code only.\n\n### STEP-BY-STEP GENERATION\n1. First, translate the *Source Text* into *{{ $('Receive File').item.json.target_language }}*.\n2. Adjust the translated text to match the *{{ $('Receive File').item.json.formality }}* tone.\n3. Wrap the final translated text in the following HTML structures:\n\n   **If \"Formal Report\":**\n   - Wrap everything in a `<div style=\"font-family: Arial, sans-serif; border: 1px solid #ccc; padding: 20px; background-color: #f8f9fa;\">`.\n   - Use `<h3>` for headlines (translated).\n   - Use `<ul>` and `<li>` for lists.\n   - Use `<b>` for key data points.\n\n   **If \"Professional Email\":**\n   - Wrap in `<div style=\"font-family: sans-serif; font-size: 16px;\">`.\n   - Start with a polite greeting in the target language (e.g., \"Hola equipo,\" or \"Sehr geehrte Damen und Herren,\").\n   - Use `<p>` for paragraphs and `<br>` for spacing.\n   - End with a professional sign-off in the target language.\n\n   **If \"Instant Message\":**\n   - Keep it short. Use only `<p>` tags. No complex styling.\n\n### OUTPUT\nReturn **ONLY** the raw HTML string. Do not use markdown blocks (```html). Start immediately with the first HTML tag.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        80,
+        -160
+      ],
+      "id": "9b9421eb-89b0-400d-8725-76f62542fd42",
+      "name": "Translator"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        0
+      ],
+      "id": "1d48bc8b-718e-4955-b01e-81049e0261b8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Receive File').item.json.recipient_email }}",
+        "subject": "=Transcribed and Translated to  {{ $('Receive File').item.json.target_language }}",
+        "message": "=Here is your translated and polished text:<p>\n\n----------------------------------------<p>\n{{ $json.text }}<p>\n----------------------------------------<p>\n\n<b>Original Request:</b> {{ $('Receive File').item.json.formality }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        -160
+      ],
+      "id": "32441ea5-75d1-4d23-956f-199cabfe7647",
+      "name": "Send Email",
+      "webhookId": "aec06bff-e576-496a-9e12-b16358efe681",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🗣️ Polyglot Transcription & Translation Agent\n\n**Use Case:** Global Communications / Industrial Logistics\n**The Problem:** Global teams struggle with communication barriers. Manual translation is slow, and raw machine translation often lacks the appropriate professional tone (formality) required for client reports.\n**The Solution:** An automated \"Polymorphic\" pipeline that ingests voice notes, documents, or text, standardizes them, and rewrites them into a specific target language and tone.\n\n**Architecture:**\n1. **Polymorphic Input:** Handles multiple data types (Audio, PDF, Text) via a single entry point.\n2. **Data Normalization:** Uses **Whisper** (for audio) and **CloudConvert** (for docs) to standardize all inputs into a single text stream.\n3. **Style Transfer:** Uses **GPT-4o** not just to translate, but to rewrite content into specific HTML formats (Report vs. Chat) based on user intent.\n4. **Delivery:** Renders the final output as a styled HTML email.",
+        "height": 288,
+        "width": 1392,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -960,
+        -832
+      ],
+      "typeVersion": 1,
+      "id": "dfce9c58-c935-4e4f-9b7f-dabf678cd7bd",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🔀 Polymorphic Ingestion Layer\n\n* **Unified Entry Point:** Accepts Audio (MP3/WAV) OR Documents (PDF/Word/TXT) in the same form.\n* **MIME-Type Routing:** The **Switch Node** detects the file signature (e.g., `audio/*` vs `application/pdf`) and routes the binary data to the correct processing engine automatically.",
+        "height": 640,
+        "width": 480,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1104,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "650d54b8-e752-4b9f-bb08-4c3129149dd2",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### ⚙️ Normalization Engine\n\n* **Audio Path:** Uses **OpenAI Whisper** to transcribe speech to text with human-level accuracy.\n* **Document Path:** Uses **CloudConvert** to render legacy formats (Docx/PDF) into plain text.\n* **The Merge Pattern:** Independent branches sanitize their data into a shared variable (`final_context`). The **Merge Node (Append Mode)** creates a unified data structure, so the downstream AI doesn't care if the source was a voice note or a contract.",
+        "height": 640,
+        "width": 608,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "c7cf7f9b-d222-4170-b16e-0c05a816e0c3",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 Semantic Style Transfer\n\n* **Multi-Step Prompting:** The AI performs three distinct tasks in one pass:\n    1. **Translation:** Converts source text to Target Language.\n    2. **Tone Adaptation:** Rewrites content (e.g., \"Casual\" -> \"Professional\").\n    3. **HTML Rendering:** Generates responsive HTML styling (headers, lists) appropriate for the selected document type.\n* **Delivery:** Sends the rendered HTML payload via SMTP/Gmail.",
+        "height": 640,
+        "width": 528,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "0f805004-09db-465e-8b66-d50cf4240357",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive File": {
+      "main": [
+        [
+          {
+            "node": "File Type Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Type Router": {
+      "main": [
+        [
+          {
+            "node": "Read Text File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read PDF File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "Set Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF File": {
+      "main": [
+        [
+          {
+            "node": "Set PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Text File": {
+      "main": [
+        [
+          {
+            "node": "Set Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Text": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Set Audio": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Translator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Translator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translator": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "988f72f3-a73f-457d-ac91-8393d41458cd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "7aHJE95wjWTIgmo6",
+  "tags": []
+}
