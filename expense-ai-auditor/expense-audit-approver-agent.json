@@ -1,0 +1,662 @@
+{
+  "name": "expense-audit-approver-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Expense Approve Portal",
+        "formDescription": "Upload your expense receipt for approval",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "employee_name",
+              "placeholder": "Employee Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "receipt",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "employee_email",
+              "fieldType": "email",
+              "placeholder": "Email Id",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "path": "expense-agent"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -1424,
+        -192
+      ],
+      "id": "e08c0af6-3b73-43a6-bf82-19e6a63539a0",
+      "name": "Expence Approval Form",
+      "webhookId": "1ca7b016-8396-4306-9b8f-2b0fe16ece17"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "image",
+              "imageType": "base64",
+              "binaryPropertyName": "=receipt"
+            },
+            {
+              "content": "=You are an expert Expense Auditor. Analyze the attached receipt image (which may be printed or handwritten).\n\n### TASKS\n1. **Extraction:** Identify the Vendor, Date, and Total Amount.\n2. **Categorization:** Analyze the line items to determine the best \"Category\".\n   - Options: [Meals, Travel, Software, Office Supplies, Other]\n3. **Risk Analysis:** Scan line items for non-compliant purchases (Alcohol, Tobacco, Gift Cards).\n\n### CRITICAL VALIDATION STEP\nBefore extracting data, check:\n1. Is the image legible?\n2. Is it actually a receipt?\n3. Are the Vendor, Date, and Total visible?\n\n**IF THE IMAGE IS UNREADABLE OR NOT A RECEIPT:**\nReturn strictly this JSON:\n{\n  \"valid\": \"boolean (false),\n  \"error_reason\": \"string(e.g. Image is blurry or Missing Total or Not a receipt\")\n}\n\n**IF VALID:**\nReturn the standard JSON and set \"valid\": true.\n\n### OUTPUT SCHEMA (JSON ONLY)\nReturn a single JSON object with these keys:\n{\n  \"valid\": \"boolean (true)\",\n  \"vendor_name\": \"string (e.g. Starbucks)\",\n  \"transaction_date\": \"string (YYYY-MM-DD)\",\n  \"total_amount\": \"number (e.g. 45.50)\",\n  \"currency\": \"string (e.g. USD)\",\n  \"category\": \"string (One of the options above)\",\n  \"risk_flag\": \"boolean (true if alcohol/tobacco found)\",\n  \"risk_reason\": \"string (e.g. 'Contains line item: Miller Lite' or 'None')\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        -192
+      ],
+      "id": "93a89b4a-3d80-4035-a015-cdc77723df58",
+      "name": "All-in-One",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e707514e-fb9e-49ef-8bba-e7f12c28191e",
+              "leftValue": "={{ $json.output[0].content[0].text.total_amount }}",
+              "rightValue": 100,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "d81cad8c-3955-4349-a5e2-957b5ad6bc34",
+              "leftValue": "={{ $json.output[0].content[0].text.risk_flag }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -720,
+        -240
+      ],
+      "id": "c16fda7a-771b-477d-8d65-7462dc2aa64d",
+      "name": "Policy Checking"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "acce1265-6fa0-44bd-b0e8-c9d42276f1d4",
+              "name": "Status",
+              "value": "NEEDS_REVIEW",
+              "type": "string"
+            },
+            {
+              "id": "c9f47bbe-3f64-42c0-bc50-11520d45defc",
+              "name": "Policy Note",
+              "value": "High value or risk item detected.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -496,
+        -400
+      ],
+      "id": "8819cbde-7111-4b3d-ac44-d4379d538506",
+      "name": "Set Review"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "61f062fe-8e03-4e49-af01-602ce7ccf113",
+              "name": "Status",
+              "value": "APPROVED",
+              "type": "string"
+            },
+            {
+              "id": "7d609f45-9d85-4318-8cd3-ee1919b3a270",
+              "name": "Policy Note",
+              "value": "Within policy limits.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -496,
+        -256
+      ],
+      "id": "1eb605e8-1a4a-48a4-9f57-2d2abf2a4747",
+      "name": "Set Approved"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12iGUZKnqzsaehw9kVI2SkA9uq6y5b-Ifg6Tz1gT4w-A",
+          "mode": "list",
+          "cachedResultName": "Ledger",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12iGUZKnqzsaehw9kVI2SkA9uq6y5b-Ifg6Tz1gT4w-A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12iGUZKnqzsaehw9kVI2SkA9uq6y5b-Ifg6Tz1gT4w-A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.format('yyyy-MM-dd') }}",
+            "Employee": "={{ $('Expence Approval Form').item.json.employee_name }}",
+            "Vendor": "={{ $json.output[0].content[0].text.vendor_name }}",
+            "Category": "={{ $json.output[0].content[0].text.category }}",
+            "Amount": "={{ $json.output[0].content[0].text.total_amount }}",
+            "Risk Status": "={{ $json.output[0].content[0].text.risk_flag }}",
+            "Risk Reason": "={{ $json.output[0].content[0].text.risk_reason }}",
+            "Status": "={{ $json.Status }}",
+            "Policy Note": "={{ $json['Policy Note'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Employee",
+              "displayName": "Employee",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Risk Status",
+              "displayName": "Risk Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Risk Reason",
+              "displayName": "Risk Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Policy Note",
+              "displayName": "Policy Note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        160,
+        -352
+      ],
+      "id": "0360df81-cb69-447d-939d-fce27ae04b0d",
+      "name": "Ledger",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YyW1gcId8nYqGi8s",
+          "name": "Google Sheets adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "659c2e2f-feba-4fa1-8ace-736e74667205",
+              "leftValue": "={{ $json.output[0].content[0].text.valid }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -912,
+        -192
+      ],
+      "id": "1d22ec4e-2975-4649-aa10-7ba66d82fe75",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Expence Approval Form').item.json.employee_email }}",
+        "subject": "ACTION REQUIRED: Expense Receipt Rejected",
+        "message": "=Hi {{ $('Expence Approval Form').item.json.employee_name }},<p>  We could not process your recent expense submission.  Reason:  <p><b>{{ $json.output[0].content[0].text.error_reason }}</b> \n<p>Please retake a clear photo of the receipt and submit again.<p>  \nThanks,<p> \nFinance Bot",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -928,
+        48
+      ],
+      "id": "37e17ca5-c4d7-4c8f-8c28-f3bc3b39b765",
+      "name": "Send Rejected Mail",
+      "webhookId": "855e816f-4b67-4f94-84d3-d5b9ea5a3a60",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "binaryPropertyName": "=receipt",
+        "options": {
+          "channelId": "C0A0FBKBLAJ",
+          "initialComment": "=🚨 *Expense Approval Required*\n\n*Employee:* {{ $('Expence Approval Form').item.json.employee_name }}\n*Vendor:* {{ $json.output[0].content[0].text.vendor_name }}\n*Amount:* {{ $json.output[0].content[0].text.currency }} {{ $json.output[0].content[0].text.total_amount }}\n*Risk Reason:* {{ $json.output[0].content[0].text.risk_reason }}"
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -64,
+        -464
+      ],
+      "id": "87eeb3c6-0e2b-46a5-8019-331795441791",
+      "name": "Notify for Review",
+      "webhookId": "c40ade9e-bf75-406b-8355-3e1ce6b19621",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "vYkkbR1nu9LwPfyH",
+          "name": "Argha DS Credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -320,
+        -528
+      ],
+      "id": "b8e773c3-8fd9-40df-a77e-ef6951effb39",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Expence Approval Form').item.json.employee_email }}",
+        "subject": "=✅ Expense Approved: {{ $json.output[0].content[0].text.vendor_name }} ({{ $json.output[0].content[0].text.currency }} {{ $json.output[0].content[0].text.total_amount }})",
+        "message": "=<div style=\"font-family: sans-serif; padding: 20px; border: 1px solid #4CAF50; border-radius: 5px;\">   <h2 style=\"color: #4CAF50;\">Expense Approved</h2>   <p>Hi {{ $('Expence Approval Form').item.json.employee_name }},</p>    <p>Your expense submission has been auto-approved by the Finance Bot.</p>    <table style=\"width: 100%; text-align: left;\">     <tr>       <th>Vendor:</th>       <td>{{ $json.output[0].content[0].text.vendor_name }}</td>     </tr>     <tr>       <th>Amount:</th>       <td>{{ $json.output[0].content[0].text.currency }} {{ $json.output[0].content[0].text.total_amount }}</td>     </tr>     <tr>       <th>Date:</th>       <td>{{ $now.format(\"yyyy-MM-dd\") }}</td>     </tr>   </table>    <p><i>Payment will be processed in the next pay cycle.</i></p> </div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        -256
+      ],
+      "id": "086f2f3f-3fe6-4b90-92ba-2c64d41c8dc3",
+      "name": "Send a message",
+      "webhookId": "80c9b48d-a68d-4e55-83f7-57bc748fe1f7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🧾 AI Expense Audit & Reimbursement Agent\n\n**Use Case:** Finance & HR Operations\n**The Problem:** Manual expense reporting is a bottleneck. Finance teams waste hours reviewing receipts for policy violations, and employees wait weeks for reimbursement.\n**The Solution:** An autonomous \"Audit Agent\" that visually reads receipts, enforces company policy deterministically, and handles approvals/rejections instantly.\n\n**Architecture:**\n1. **Visual Extraction:** Uses **GPT-4o Vision** to extract Vendor, Date, and Amount from raw images—no manual entry required.\n2. **Policy Engine:** Deterministic `If` logic enforces rules (e.g., \"Meals > $100 require review\" or \"Alcohol detected\").\n3. **Feedback Loops:**\n    * **Rejection:** Bad images triggers an instant \"Retake\" email.\n    * **Escalation:** High-risk items trigger a **Slack Alert** with the receipt image attached for manager review.\n    * **Approval:** Safe items trigger an instant \"Approved\" email.\n4. **Audit Trail:** All actions are logged to a central Ledger (Google Sheets).",
+        "height": 432,
+        "width": 832,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1568,
+        -944
+      ],
+      "typeVersion": 1,
+      "id": "f500fac4-6a05-4101-a566-47230164530b",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 👁️ Multimodal Ingestion Layer\n\n* **Zero-Entry Input:** Employees simply snap a photo. No manual typing required.\n* **Vision & Reasoning:** The AI Agent performs two tasks in one pass:\n    1. **OCR:** Extracts hard data (Amount: $74.79).\n    2. **Analysis:** Scans for risk factors (e.g., detecting \"Miller Lite\" implies Alcohol).",
+        "height": 400,
+        "width": 528,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1552,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "c6d69d6d-013c-40db-bc6a-0191dc297c31",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Validation Gate\n\n* **Sanity Check:** Before processing, the system verifies if the uploaded file is actually a legible receipt.\n* **Closed Loop:** If the image is blurry or invalid, the workflow terminates the main path and immediately emails the user with the specific error reason (e.g., \"Image Unreadable\"), preventing database pollution.",
+        "height": 688,
+        "width": 278,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1008,
+        -496
+      ],
+      "typeVersion": 1,
+      "id": "158b9c98-621c-4229-abe3-d786b3b8c185",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### ⚖️ Policy Enforcement Engine\n\n* **Deterministic Logic:** Applies hard business rules (e.g., `Amount > $100` OR `Risk Flag == True`).\n* **Branching:**\n    * **Path A (Risk):** Routes to manual review.\n    * **Path B (Safe):** Routes to auto-approval.",
+        "height": 736,
+        "width": 336,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -720,
+        -640
+      ],
+      "typeVersion": 1,
+      "id": "53d05362-0065-40c3-b687-763006ef3b06",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 🔔 Human-in-the-Loop & Audit\n\n* **Rich Alerts:** The **Merge Node** re-attaches the original receipt image to the data stream, allowing the **Slack Node** to post the actual image to the manager for immediate context.\n* **Instant Feedback:** Approved users receive an HTML email confirmation immediately.\n* **Ledger:** Final state (Approved/Review) is logged to the database for month-end reconciliation.",
+        "height": 736,
+        "width": 640,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -352,
+        -704
+      ],
+      "typeVersion": 1,
+      "id": "8cd00a56-2693-49f2-9b5f-b20b2c7a0c7b",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Expence Approval Form": {
+      "main": [
+        [
+          {
+            "node": "All-in-One",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "All-in-One": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy Checking": {
+      "main": [
+        [
+          {
+            "node": "Set Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Approved": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Review": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Policy Checking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejected Mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify for Review": {
+      "main": [
+        [
+          {
+            "node": "Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Notify for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9f0d39e5-b1e9-480c-99eb-42d2d2090bd0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "6WrlmgUPVtSLMzVp",
+  "tags": []
+}
