@@ -1,0 +1,571 @@
+{
+  "name": "insurance-form-processing-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Insurance Form Digitization",
+        "formDescription": "Please upload your form for digitization",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "claim_form",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png, .pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "adjuster_email",
+              "fieldType": "email",
+              "placeholder": "Enter adjuster email"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "path": "claim-digitizer"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -1520,
+        -144
+      ],
+      "id": "5ac09d17-aeb4-47cc-8e17-08bbbc1d27ea",
+      "name": "Digitizer Form",
+      "webhookId": "ebe9b02a-827b-4054-91b6-739f6fd1f6c3"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "image",
+              "imageType": "base64",
+              "binaryPropertyName": "claim_form"
+            },
+            {
+              "content": "=You are an expert Insurance Data Entry Specialist with advanced handwriting recognition capabilities.\n\n### TASK\nAnalyze the attached image of a HANDWRITTEN First Notice of Loss (FNOL) claim form.\nYour goal is to accurately transcribe the handwritten text into structured data.\n\n### FIELDS TO EXTRACT\n1. **claimant_name** (string): The full name of the person filing the claim.\n2. **policy_number** (string): The alphanumeric policy ID (e.g., A-9920). If not visible, return \"Not Provided\".\n3. **date_of_loss** (string): The date the accident occurred. Format as YYYY-MM-DD.\n4. **incident_description** (string): Transcribe the full handwritten narrative of what happened. Correct minor spelling errors if obvious, but maintain the original meaning.\n5. **has_signature** (boolean): True if a signature or scribble appears at the bottom of the form.\n6. **valid** (boolean): True\n\n### ERROR HANDLING\n- If the handwriting is completely illegible or the image is not a form, set \"error\" to true and \"reason\" to \"Illegible\".\n\n### VALIDATION STEP (CRITICAL)\nFirst, analyze the image quality and content.\n- Is the image legible?\n- Is it a \"Claim Form\" or \"Incident Report\"?\n- Does it contain handwriting?\n\n**IF INVALID (Blurry, Not a form, Blank):**\nReturn strictly this JSON:\n{\n  \"valid\": false,\n  \"error_reason\": \"Image is blurry / Not a claim form / Handwriting illegible\"\n}\n\n### OUTPUT FORMAT\nReturn strictly a JSON object."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        -144
+      ],
+      "id": "05e0c804-c9b5-491b-a8a1-9aa6e62b6cc2",
+      "name": "Form Perser",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "folderId": "1QdcKsGbvp23j4TS3vsT2FepSFr9T95Gs",
+        "title": "=FNOL Report -{{ $json.output[0].content[0].text.claimant_name }}  - {{ $json.output[0].content[0].text.date_of_loss }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        -288
+      ],
+      "id": "3b7578b6-ea2d-463f-9881-ad50dafb4d52",
+      "name": "Create Report",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "z4QWof7BMyCQjNi7",
+          "name": "Google Docs account Adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "=FIRST NOTICE OF LOSS (FNOL) - DIGITAL TRANSCRIPT\n------------------------------------------------\n\nCLAIM DETAILS\nClaimant Name: {{ $('Form Perser').item.json.output[0].content[0].text.claimant_name }}\nPolicy Number: {{ $('Form Perser').item.json.output[0].content[0].text.policy_number }}\nDate of Loss:  {{ $('Form Perser').item.json.output[0].content[0].text.date_of_loss }}\n\nINCIDENT DESCRIPTION (Transcribed)\n----------------------------------\n{{ $('Form Perser').item.json.output[0].content[0].text.incident_description }}\n\nVERIFICATION\nSignature Detected on Form: {{ $('Form Perser').item.json.output[0].content[0].text.has_signature ? \"YES\" : \"NO\" }}\n\n------------------------------------------------\nGenerated by AI Agent at: {{ $now.format('yyyy-MM-dd hh:mm a') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        -288
+      ],
+      "id": "c9bf0378-374d-4827-82a5-386fb1b60ffd",
+      "name": "Write the Report",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "z4QWof7BMyCQjNi7",
+          "name": "Google Docs account Adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.documentId }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1Va6hh5M464Mx0IZewEpP8C5y2toMSwzz",
+          "mode": "list",
+          "cachedResultName": "insurance claim reports",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1Va6hh5M464Mx0IZewEpP8C5y2toMSwzz"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -176,
+        -288
+      ],
+      "id": "ba6e8b80-472a-468d-8656-42fcbec17a94",
+      "name": "Move to Insuracce Calim Reports Folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kYo9GOt5Ay7Vq313",
+          "name": "Google Drive account adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "insurance_claims",
+        "fields": "=claimant_name,\npolicy_number,\ndate_of_loss,\nincident_description,\nhas_signature\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        -288
+      ],
+      "id": "8a07ac72-5e0c-4681-894f-39ce4bf14a96",
+      "name": "Save to DB",
+      "credentials": {
+        "mongoDb": {
+          "id": "AY20TUyL8OJQGYe5",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d8d2f733-bc76-49b6-afc4-6b0772fd3925",
+              "name": "claimant_name",
+              "value": "={{ $json.output[0].content[0].text.claimant_name }}",
+              "type": "string"
+            },
+            {
+              "id": "ccbb0056-c428-4beb-a6ad-4faf3355e4f5",
+              "name": "policy_number",
+              "value": "={{ $json.output[0].content[0].text.policy_number }}",
+              "type": "string"
+            },
+            {
+              "id": "80019154-5e1c-4d86-bb23-e3d530781c47",
+              "name": "date_of_loss",
+              "value": "={{ $json.output[0].content[0].text.date_of_loss }}",
+              "type": "string"
+            },
+            {
+              "id": "3174748b-a823-4201-b4fe-7550cd5cf173",
+              "name": "incident_description",
+              "value": "={{ $json.output[0].content[0].text.incident_description }}",
+              "type": "string"
+            },
+            {
+              "id": "77772dcd-4bee-4007-8eb9-c2987c4ccd5e",
+              "name": "has_signature",
+              "value": "={{ $json.output[0].content[0].text.has_signature }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -832,
+        -288
+      ],
+      "id": "9940548b-f917-4479-b773-043d553eaf04",
+      "name": "Normalize Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4514e674-8e29-4dae-9600-01cd9d243747",
+              "leftValue": "={{ $json.output[0].content[0].text.valid }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        -144
+      ],
+      "id": "0c2f98a3-0ea1-4424-91dd-88108ff35759",
+      "name": "Validation Gate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7b67f055-456d-42e4-abcb-4675a3572d57",
+              "leftValue": "={{ $('Digitizer Form').item.json.adjuster_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -848,
+        16
+      ],
+      "id": "9395a210-2061-4218-a79b-a31496d963f5",
+      "name": "Check Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Digitizer Form').item.json.adjuster_email }}",
+        "subject": "⚠️ Action Required: FNOL Upload Failed",
+        "message": "=Hello,<p>\n\nWe could not process the claim form you uploaded.<p>\n\nReason: <b>{{ $json.output[0].content[0].text.error_reason }}</b><p>\nPlease ensure the photo is clear and contains a valid handwritten claim form.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        0
+      ],
+      "id": "721df5e4-321c-411a-8f08-750615507014",
+      "name": "Notify Error",
+      "webhookId": "fc8acc4f-60aa-4678-a2c6-61790299d187",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "email2argha@gmail.com",
+        "subject": "=🔔 New Claim Report: {{ $('Normalize Data').item.json.claimant_name }} - {{ $('Normalize Data').item.json.policy_number }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; padding: 20px; border-left: 4px solid #0052cc; background-color: #f4f7fa;\">   <h3 style=\"margin-top:0;\">New FNOL Digitized</h3>    <p>A new handwritten claim form has been processed and digitized.</p>    <p><b>Claimant:</b> {{ $('Normalize Data').item.json.claimant_name }}<br>   <b>Date of Loss:{{ $('Normalize Data').item.json.date_of_loss }}</b> <br>   <b>Incident:</b> {{ $('Normalize Data').item.json.incident_description }}</p>    <p style=\"margin-top: 20px;\">\n    <a href=\"https://docs.google.com/document/d/{{ $json.id }}/edit\" style=\"background-color: #0052cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;\">\n      📄 Open Digital Report\n    </a>\n  </p>    <p style=\"font-size: 12px; color: #666;\">Original file archived in MongoDB.</p> </div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        32,
+        -288
+      ],
+      "id": "680e521f-c1f1-492e-b4df-a193b7528706",
+      "name": "Notify Manager",
+      "webhookId": "d2c5ab71-af42-4421-844b-8193908007dc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 📝 Handwritten Insurance Claim (FNOL) Digitization Agent\n\n**Use Case:** Insurance Operations / Claims Processing\n**The Problem:** Intake teams waste hours manually transcribing handwritten \"First Notice of Loss\" forms. This creates bottlenecks and delays claim adjudication.\n**The Solution:** An automated ICR (Intelligent Character Recognition) pipeline that digitizes handwriting, structures the data, archives it to a database, and generates formal reports instantly.\n\n**Architecture:**\n1. **Vision ICR:** Uses **GPT-4o** to transcribe messy handwriting, check checkboxes, and detect signatures.\n2. **Validation Gate:** A deterministic logic layer that rejects illegible images or non-forms immediately.\n3. **Data Normalization:** Flattens nested JSON data for database compatibility.\n4. **Dual Persistence:**\n    * **Structured:** Saves raw data to **MongoDB** for analytics.\n    * **Unstructured:** Generates a human-readable **Google Doc** report.\n5. **Closed Loop:** Notifies the manager with the report link on success, or the user with specific reasons on failure.",
+        "height": 416,
+        "width": 1008,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1616,
+        -960
+      ],
+      "typeVersion": 1,
+      "id": "a89ac1aa-4283-4340-92c3-bab27fc598a2",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 👁️ ICR & Validation Layer\n\n* **Multimodal Extraction:** The **Form Parser** (GPT-4o) converts raw image pixels into structured JSON, extracting handwritten fields like \"Incident Description\" and \"Policy Number.\"\n* **Quality Gate:** The **Validation Gate** prevents bad data from entering the system. If the AI flags the image as blurry or irrelevant, the workflow branches to the Error Notification path immediately.",
+        "height": 560,
+        "width": 688,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1616,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "9cb811f1-c58f-4b45-8ae1-3ff185efd414",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🔔 Human-in-the-Loop Handoff(On Error)\n\n* **Failure Path:** If validation fails, the user receives an instant email explaining *why* (e.g., \"Image Unreadable\"), ensuring a tight feedback loop.",
+        "height": 288,
+        "width": 560,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -880,
+        -112
+      ],
+      "typeVersion": 1,
+      "id": "2d2debc7-8cd6-4fd6-a966-77084f257d04",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 💾 ETL & Persistence\n\n* **Normalization:** The **Normalize Data** node flattens the nested AI response into a clean schema, preventing database errors.\n* **Audit Log:** Every valid claim is inserted into **MongoDB**, creating an immutable record of the raw extraction data before document generation.",
+        "height": 384,
+        "width": 336,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -880,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "cc24f9ae-430b-4995-b79b-d47be3069739",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 📄 Digital Report Automation\n\n* **Dynamic Generation:** Uses a \"Create & Update\" pattern to generate a professional Google Doc.\n* **Smart Organization:** The workflow automatically moves the newly created file to the specific \"Claims Folder\" in Drive, keeping the file system organized without human intervention.",
+        "height": 384,
+        "width": 496,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -528,
+        -512
+      ],
+      "typeVersion": 1,
+      "id": "a75f6106-0cc8-4158-9898-92331c36553b",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "### 🔔 Human-in-the-Loop Handoff(On Success)\n\n* **Success Path:** Emails the Claims Manager with a summary and a **Direct Link** to the generated Google Doc for immediate review.",
+        "height": 416,
+        "width": 368,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16,
+        -528
+      ],
+      "typeVersion": 1,
+      "id": "9e2e44f5-71b0-4b16-ad93-78436967d2f7",
+      "name": "Sticky Note5"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Digitizer Form": {
+      "main": [
+        [
+          {
+            "node": "Form Perser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Perser": {
+      "main": [
+        [
+          {
+            "node": "Validation Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Report": {
+      "main": [
+        [
+          {
+            "node": "Write the Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the Report": {
+      "main": [
+        [
+          {
+            "node": "Move to Insuracce Calim Reports Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to DB": {
+      "main": [
+        [
+          {
+            "node": "Create Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Save to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Gate": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Email": {
+      "main": [
+        [
+          {
+            "node": "Notify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move to Insuracce Calim Reports Folder": {
+      "main": [
+        [
+          {
+            "node": "Notify Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8df15470-445e-48e5-b76c-0fb8b5773ba5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "fJh4H18gL4zMfI9x",
+  "tags": []
+}
