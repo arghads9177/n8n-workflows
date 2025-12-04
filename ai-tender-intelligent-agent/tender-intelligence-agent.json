@@ -1,0 +1,600 @@
+{
+  "name": "tender-intelligence-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Tender Analyzer",
+        "formDescription": "Upload your tender paper in PDF format.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "tender_document",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "uploader_email",
+              "fieldType": "email",
+              "placeholder": "Enter your email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "path": "tender-agent",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Thank you for uploading your tender paper. Let me analyze it."
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -1152,
+        -4240
+      ],
+      "id": "826bda91-dc03-4f36-a3a2-85e6d05382c1",
+      "name": "Tender Acceptance Form",
+      "webhookId": "cce90843-d3cd-40ce-8a9e-4ed8a1a0950d"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "63db2770-63ff-4724-bb6f-ddaabf9731dd",
+              "name": "client_name",
+              "value": "={{ $json.output[0].content[0].text.client_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c57631d8-fc6d-4c3a-94be-fd2fc54fc35b",
+              "name": "project_title",
+              "value": "={{ $json.output[0].content[0].text.project_title }}",
+              "type": "string"
+            },
+            {
+              "id": "d7808d77-ed9d-4561-953f-e40f64dd4d3c",
+              "name": "location",
+              "value": "={{ $json.output[0].content[0].text.location }}",
+              "type": "string"
+            },
+            {
+              "id": "bd6547a1-6d20-4810-b27a-fbd1e78773a3",
+              "name": "tender_submission_deadline",
+              "value": "={{ $json.output[0].content[0].text.tender_submission_deadline }}",
+              "type": "string"
+            },
+            {
+              "id": "9899dea0-3c5b-462a-bbdc-905f91db845d",
+              "name": "project_completion_deadline",
+              "value": "={{ $json.output[0].content[0].text.project_completion_deadline }}",
+              "type": "string"
+            },
+            {
+              "id": "2c203899-ad7c-4d35-a89c-2b155ab58a52",
+              "name": "contract_duration",
+              "value": "={{ $json.output[0].content[0].text.contract_duration }}",
+              "type": "string"
+            },
+            {
+              "id": "d237e4cf-9718-42bf-b56a-3e56ae4c5979",
+              "name": "estimated_budget",
+              "value": "={{ $json.output[0].content[0].text.estimated_budget }}",
+              "type": "string"
+            },
+            {
+              "id": "fd09e7fa-5639-4ca7-9e2a-039c196b18c6",
+              "name": "payment_terms",
+              "value": "={{ $json.output[0].content[0].text.payment_terms }}",
+              "type": "string"
+            },
+            {
+              "id": "0049bd9e-ba15-4eda-9216-f89603a7c98d",
+              "name": "bond_requirements",
+              "value": "={{ $json.output[0].content[0].text.bond_requirements }}",
+              "type": "string"
+            },
+            {
+              "id": "dd47ba8d-8ed0-4977-ae23-a33400340bea",
+              "name": "liquidated_damages",
+              "value": "={{ $json.output[0].content[0].text.liquidated_damages }}",
+              "type": "string"
+            },
+            {
+              "id": "fdf5e272-00be-4b23-9534-10688052a3d0",
+              "name": "required_certifications",
+              "value": "={{ $json.output[0].content[0].text.required_certifications }}",
+              "type": "array"
+            },
+            {
+              "id": "bd6ae54a-bef0-47a6-811a-396d4dd85111",
+              "name": "identified_risk_factors",
+              "value": "={{ $json.output[0].content[0].text.consolidated_risk_factors }}",
+              "type": "array"
+            },
+            {
+              "id": "97e46854-d9b3-4d81-bc30-68726dffca8e",
+              "name": "risk_score",
+              "value": "={{ $json.output[0].content[0].text.calculated_risk_score }}",
+              "type": "number"
+            },
+            {
+              "id": "d87f0a6f-348c-4f12-8b5a-3734d3a8c8bd",
+              "name": "executive_summary",
+              "value": "={{ $json.output[0].content[0].text.executive_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "8c7da491-d408-4df9-9f4e-65dfac4d8b25",
+              "name": "added_on",
+              "value": "={{ $now }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        -4352
+      ],
+      "id": "5b3cb2ae-fb94-4ef9-ad4c-10a437991a99",
+      "name": "Normalize Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5e90cd88-1239-4015-9b90-5f05b2715401",
+              "leftValue": "={{ $json.output[0].content[0].text.is_valid_project }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        336,
+        -4240
+      ],
+      "id": "af598064-8a3f-4df6-b0b3-36fea5944520",
+      "name": "Validation Gate"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "tender_opportunities",
+        "fields": "=client_name, project_title, location, tender_submission_deadline, project_completion_deadline, contract_duration, estimated_budget, payment_terms, bond_requirements,  liquidated_damages, required_certifications, identified_risk_factors, risk_score, executive_summary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        -4352
+      ],
+      "id": "bd8607e3-1964-4100-a5b1-75f8934091d9",
+      "name": "Insert documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "AY20TUyL8OJQGYe5",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Tender Acceptance Form').item.json.uploader_email }}",
+        "subject": "=📢 New Tender Opportunity: {{ $json.client_name }} (Risk: {{ $json.risk_score }}/10)",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e0e0e0;\">      <div style=\"background-color: #003366; color: white; padding: 15px;\">     <h2 style=\"margin:0;\">New Tender Analysis</h2>     <p style=\"margin:5px 0 0; font-size: 14px;\">Project: {{ $json.project_title }}</p>   </div>    <div style=\"padding: 20px;\">          <div style=\"background-color: #f9f9f9; padding: 15px; border-left: 4px solid #003366; margin-bottom: 20px;\">       <h4 style=\"margin-top: 0; margin-bottom: 5px; color: #333;\">Executive Summary</h4>       <p style=\"margin: 0; font-style: italic; color: #555;\">{{ $json.executive_summary }}</p>     </div>      <table style=\"width: 100%; border-collapse: collapse;\">       <tr>         <td style=\"padding: 8px; border-bottom: 1px solid #eee;\"><b>Client:</b></td>         <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.client_name }}</td>       </tr>       <tr>         <td style=\"padding: 8px; border-bottom: 1px solid #eee;\"><b>Budget:</b></td>         <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.estimated_budget }}</td>       </tr>       <tr>         <td style=\"padding: 8px; border-bottom: 1px solid #eee;\"><b>Deadline:</b></td>         <td style=\"padding: 8px; border-bottom: 1px solid #eee; color: #d9534f; font-weight: bold;\">           {{ $json.tender_submission_deadline }}         </td>       </tr>     </table>      <h3 style=\"margin-top: 25px; color: #d9534f;\">⚠️ Risk Assessment (Score: {{ $json.risk_score }}/10)</h3>          \n\n<p><b>Identified Risk Factors:</b></p>     <ul>       {{ $json.identified_risk_factors.map(r => `<li>${r}</li>`).join('') }}     </ul>   \n<p><b>Liquidated Damages:</b><br>     {{ $json.liquidated_damages }}</p> \n<p><b>Estimated Budget:</b><br>    {{ $json.estimated_budget }} </p> \n<p><b>Payment Terms:</b><br>   {{ $json.payment_terms }}  </p> \n<p><b>Bond Requirements:</b><br>   {{ $json.bond_requirements }} </p> \n<p><b>Required Certificates:</b></p>     <ul>       {{ $json.required_certifications.map(r => `<li>${r}</li>`).join('') }}     </ul>   \n<p style=\"font-size: 12px; color: #888; margin-top: 30px; text-align: center;\">       Generated by Tender Intelligence Agent • Archived in MongoDB     </p>   </div> </div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1232,
+        -4352
+      ],
+      "id": "20ae27cf-050e-4f9c-8a52-e1b9cfe8e987",
+      "name": "Send The Summary",
+      "webhookId": "1e8f8d49-6d9d-4174-8b3d-8d5ca382ee3d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Tender Acceptance Form').item.json.uploader_email }}",
+        "subject": "=❌ Upload Rejected: {{ $('Tender Acceptance Form').item.json.tender_document[0].filename }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #d9534f; border-radius: 5px; overflow: hidden;\">      <div style=\"background-color: #d9534f; color: white; padding: 15px;\">     <h2 style=\"margin:0;\">⚠️ Document Rejected</h2>   </div>    <div style=\"padding: 20px; background-color: #fff;\">     <p>The document you uploaded could not be processed by the Tender Intelligence Agent.</p>          <div style=\"background-color: #fdf2f2; padding: 15px; border-left: 4px solid #d9534f; margin: 20px 0;\">       <strong style=\"color: #d9534f;\">Reason for Rejection:</strong><br>       <span style=\"font-size: 16px;\">{{ $json.output[0].content[0].text.rejection_reason }}</span>     </div>      <p><b>Please Check:</b></p>     <ul>       <li>Is the file a valid Request for Proposal (RFP) or Tender?</li>       <li>Is the text legible (not a blurry scan)?</li>       <li>Did you upload an Invoice or Receipt by mistake?</li>     </ul>      <hr style=\"border: 0; border-top: 1px solid #eee; margin: 20px 0;\">          <p style=\"font-size: 12px; color: #888;\">       Filename:   {{ $('Tender Acceptance Form').item.json.tender_document[0].filename }}   </p>   </div> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        336,
+        -3984
+      ],
+      "id": "4a6514c6-37b0-4dbf-9f67-b0d5b2fad7e3",
+      "name": "Send Error",
+      "webhookId": "732bdccb-c778-461c-b9ce-558291aac80a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🏗️ AI Tender/RFP Intelligence Agent\n\n**Use Case:** Complex Industrial Procurement\n**The Problem:** Tender packages are rarely one file. They are split into \"Technical Specs,\" \"Commercial Offers,\" and \"Legal Annexes.\" Analyzing them one by one misses the context (e.g., the Deadline is in File A, but the Penalty Clause is in File B).\n**The Solution:** A **Map-Reduce AI Architecture** that ingests a batch of files, analyzes them in parallel (\"Fan-Out\"), and synthesizes a holistic Risk Assessment (\"Fan-In\").\n\n**Architecture:**\n1. **Batch Ingestion:** Handles multi-file uploads via a custom Code Node splitter.\n2. **Distributed Analysis (Map):** \"Edge Agents\" (GPT-4o) extract raw facts from each file independently without hallucinating missing data.\n3. **Synthesis (Reduce):** A \"Master Brain\" aggregates all partial insights, resolves conflicting dates, and calculates a Global Risk Score.\n4. **Validation & Storage:** Filters out invalid submissions before archiving the Master Profile to MongoDB.\n5. **Decision Support:** Emails a consolidated \"Bid/No-Bid\" Dashboard to the manager.",
+        "height": 368,
+        "width": 960,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1312,
+        -5008
+      ],
+      "typeVersion": 1,
+      "id": "1ab0ab6c-b800-44a2-b199-e74b602d3387",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🔀 Batch Ingestion Layer\n\n* **Multi-File Handling:** The **Form Trigger** accepts a package of documents (PDFs).\n* **Array Normalization:** The **Code Node** \"explodes\" the binary array into individual items, preparing them for parallel processing. This ensures the AI reads every single file in the package, not just the first one.",
+        "height": 384,
+        "width": 592,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1328,
+        -4448
+      ],
+      "typeVersion": 1,
+      "id": "e506f34b-b949-40b3-9ea5-c618b962cba7",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Quality Gate & Archiving\n\n* **Project Validation:** Checks if *at least one* valid tender document was found in the batch. If the user uploaded 5 invoices by mistake, the entire batch is rejected.\n* **Structured Archiving:** Saves the consolidated \"Master Profile\" to **MongoDB**, turning a folder of PDFs into a single, queryable database record.",
+        "height": 768,
+        "width": 304,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        240,
+        -4608
+      ],
+      "typeVersion": 1,
+      "id": "48e884a4-466b-48dc-b08e-5b884c5f69dd",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Quality Gate & Archiving\n\n* **Project Validation:** Checks if *at least one* valid tender document was found in the batch. If the user uploaded 5 invoices by mistake, the entire batch is rejected.\n* **Structured Archiving:** Saves the consolidated \"Master Profile\" to **MongoDB**, turning a folder of PDFs into a single, queryable database record.",
+        "height": 496,
+        "width": 464,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        576,
+        -4608
+      ],
+      "typeVersion": 1,
+      "id": "ec2af4ad-7cc1-4773-9f42-1e50e877e63c",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 📊 Bid Decision Dashboard\n\n* **Executive Summary:** Delivers a unified HTML report to the Bid Manager, highlighting the **Budget**, **Strict Deadlines**, and **Consolidated Risk Factors**.\n* **Closed Loop:** If validation fails, the user receives a specific error breakdown (e.g., \"Files rejected: Invoice.pdf\"), ensuring immediate correction.",
+        "height": 480,
+        "width": 528,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1056,
+        -4592
+      ],
+      "typeVersion": 1,
+      "id": "cb2cd760-aeb7-4342-9004-f10c4116062e",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "file",
+              "fileType": "base64",
+              "binaryPropertyName": "tender_document",
+              "fileName": "={{ $binary.tender_document.fileName }}"
+            },
+            {
+              "content": "=You are a Senior Tender Data Extractor. I am providing you with ONE file from a larger multi-file Tender/RFP package.\n\n### YOUR GOAL\nExtract raw data, commercial terms, and constraints visibly present in this specific document. Do not analyze or score the project yet—just report the facts found.\n\n### EXTRACTION RULES\n1. **Facts Only:** If a field (like \"Bond Requirements\") is NOT present in THIS specific file, explicitly return `null`.\n2. **Commercials:** Look for Payment Terms (e.g. \"Net 30\"), Contract Duration, and Performance Bonds.\n3. **Risks:** Copy relevant text for \"Liquidated Damages\" or \"Compliance\" clauses if found.\n\n### OUTPUT SCHEMA (Strict JSON)\nReturn a single JSON object.\n\n{\n  \"file_name\": \"{{ $binary.tender_document.fileName }}\",\n  \"is_valid_tender_doc\": boolean,\n  \n  \"client_name\": \"string (or null)\",\n  \"project_title\": \"string (or null)\",\n  \"location\": \"string (or null)\",\n  \n  \"tender_submission_deadline\": \"YYYY-MM-DD (or null)\",\n  \"project_completion_deadline\": \"YYYY-MM-DD (or null)\",\n  \n  \"contract_duration\": \"string (e.g., '24 Months' or null)\",\n  \"estimated_budget\": \"string (or null)\",\n  \"payment_terms\": \"string (e.g., 'Net 60 Days', 'Progress Payments' or null)\",\n  \"bond_requirements\": \"string (e.g., '10% Bank Guarantee' or null)\",\n  \"liquidated_damages_clause\": \"string (Raw text of the penalty clause or null)\",\n  \"required_certifications\": [\"string\"],\n  \n  \"raw_risk_factors\": [\"string (List specific clauses/terms found that look risky)\"]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        -4240
+      ],
+      "id": "7637f612-a69a-4d96-be93-d69389d6f609",
+      "name": "Part Analyst Agent",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const newItems = [];\n\n// Check if we have binary data\nif (items[0].binary) {\n  const binaryKeys = Object.keys(items[0].binary);\n\n  // Loop through every uploaded file (tender_document_0, tender_document_1...)\n  for (const key of binaryKeys) {\n    if (key.startsWith('tender_document')) {\n      newItems.push({\n        json: {\n          // Keep the filename metadata for the AI to see\n          fileName: items[0].binary[key].fileName\n        },\n        binary: {\n          // RE-NAME every file to the standard name \"tender_document\"\n          // This ensures the OpenAI node always finds it.\n          tender_document: items[0].binary[key]\n        }\n      });\n    }\n  }\n}\n\nreturn newItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        -4240
+      ],
+      "id": "48cc77a4-e19a-4312-886a-750f0863af5c",
+      "name": "Multi File Normalization"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a Chief Bid Officer. I have extracted raw data from multiple files belonging to the SAME Tender project package.\n\n### INPUT DATA (List of File Extracts)\n{{ JSON.stringify($json.data) }}\n\n### YOUR TASK\n1. **Validation Check:**\n   - If **ALL** files are invalid (or null), set `\"is_valid_project\": false`.\n   - If **AT LEAST ONE** file is valid, set `\"is_valid_project\": true`.\n\n2. **Consolidate Data:** Merge the partial data into a single \"Master Tender Profile\".\n   - **Fields Strategy:** Find the non-null value across all files. If File A has \"Payment Terms\" and File B has \"Bond Requirements\", combine them into the master record.\n   - **Certifications:** Combine all found `required_certifications` arrays into one master list (remove duplicates).\n\n3. **Analyze Risk:**\n   - Review ALL `liquidated_damages_clause` text found.\n   - **Calculate a Risk Score (1-10)** based on the severity of terms (High penalties, strict bonds, aggressive timelines).\n\n### OUTPUT SCHEMA (Strict JSON)\n{\n  \"is_valid_project\": boolean,\n  \"rejection_reason\": \"string (or null if valid)\",\n  \n  \"client_name\": \"string\",\n  \"project_title\": \"string\",\n  \"location\": \"string\",\n  \n  \"tender_submission_deadline\": \"YYYY-MM-DD\",\n  \"project_completion_deadline\": \"YYYY-MM-DD\",\n  \"contract_duration\": \"string (or 'Not Specified')\",\n  \n  \"estimated_budget\": \"string (or 'Not Specified')\",\n  \"payment_terms\": \"string (or 'Not Specified')\",\n  \"bond_requirements\": \"string (or 'Not Specified')\",\n  \"liquidated_damages\": \"string (Summary of penalty terms found)\",\n  \n  \"required_certifications\": [\"string\"],\n  \n  \"consolidated_risk_factors\": [\n    \"string\"\n  ],\n  \n  \"calculated_risk_score\": \"number (1-10)\",\n  \"executive_summary\": \"string\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -4240
+      ],
+      "id": "57de2b11-a5b6-41a2-b96e-a7590ae922b7",
+      "name": "Master Merger",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "### 👁️ \"Part Analyst\" (Fact Retrieval)\n\n* **Scope-Restricted AI:** This Vision Agent analyzes one file at a time. It is strictly instructed to return `null` for missing fields (e.g., \"Budget not found in this file\") rather than guessing.\n* **Goal:** Create a high-fidelity \"Fact Fragment\" for each document in the package.",
+        "height": 544,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -720,
+        -4608
+      ],
+      "typeVersion": 1,
+      "id": "01a43d27-7ac1-40d7-b3df-130bfd82d74b",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 \"Master Merger\" (Context Synthesis)\n\n* **The Fan-In:** The **Aggregate Node** acts as a traffic light, waiting for all file analyses to complete.\n* **Conflict Resolution:** The **Master Brain** (LLM) reviews the combined data. It solves logic puzzles (e.g., \"File A says deadline is Dec 1st, File B says Dec 5th—use the earliest\").\n* **Holistic Risk:** Calculates a final Risk Score (1-10) based on the *combined* severity of clauses found across all files.",
+        "height": 544,
+        "width": 560,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -368,
+        -4608
+      ],
+      "typeVersion": 1,
+      "id": "bdf2c9b3-8819-4657-900d-ef0b71816c77",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -4240
+      ],
+      "id": "f236e391-3d9d-48e8-942e-69b9d3bf01ab",
+      "name": "Part Aggregation"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Tender Acceptance Form": {
+      "main": [
+        [
+          {
+            "node": "Multi File Normalization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Gate": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Insert documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert documents": {
+      "main": [
+        [
+          {
+            "node": "Send The Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Part Analyst Agent": {
+      "main": [
+        [
+          {
+            "node": "Part Aggregation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Multi File Normalization": {
+      "main": [
+        [
+          {
+            "node": "Part Analyst Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Master Merger": {
+      "main": [
+        [
+          {
+            "node": "Validation Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Part Aggregation": {
+      "main": [
+        [
+          {
+            "node": "Master Merger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "663d4a15-fbea-4461-9d04-e8d08fd27b5c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "dqxU37bhbOgsf6tO",
+  "tags": [
+    {
+      "updatedAt": "2025-12-03T03:56:35.891Z",
+      "createdAt": "2025-12-03T03:56:35.891Z",
+      "id": "J7dRsikT6tBCsHfb",
+      "name": "industrial"
+    },
+    {
+      "updatedAt": "2025-11-24T16:14:37.868Z",
+      "createdAt": "2025-11-24T16:14:37.868Z",
+      "id": "sYzNF35VioIESd2z",
+      "name": "ai agent"
+    }
+  ]
+}
