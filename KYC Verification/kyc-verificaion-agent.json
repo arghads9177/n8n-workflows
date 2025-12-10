@@ -1,0 +1,910 @@
+{
+  "name": "kyc-verificaion-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Secure KYC Portal",
+        "formDescription": "Please upload your Government ID and a recent Utility Bill for verification.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "input_name",
+              "placeholder": "Full Name (As per ID)",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "input_address",
+              "fieldType": "textarea",
+              "placeholder": "Current Address (As per Address Proof)",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "applicant_email",
+              "fieldType": "email",
+              "placeholder": "Email Id",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "id_document",
+              "fieldType": "file",
+              "acceptFileTypes": ".jpg, .jpeg, .png",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "utility_bill",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "path": "kyc-verification"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -992,
+        -96
+      ],
+      "id": "e60f4c5b-5b33-454f-a9e6-a6ba61e3919b",
+      "name": "KYC Form Submission",
+      "webhookId": "ec4b4d07-e54a-4503-92c9-cc63df632343"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "image",
+              "imageType": "base64",
+              "binaryPropertyName": "id_document"
+            },
+            {
+              "content": "=You are a KYC Verification Expert. Analyze the attached image.\n**CONTEXT:** This image is ONE PART (Front or Back) of a Government ID.\n\n### YOUR GOAL\nExtract whatever valid data is visible in THIS specific image.\n- If this is the **FRONT** (Photo + Name), extract Name/DOB/ID. Return 'null' for Address if not visible.\n- If this is the **BACK** (Address + Pin), extract Address. Return 'null' for Name if not visible.\n- **Back Side Validation:** A document showing *only* an address/barcode is VALID if it looks like the back of an ID card.\n\n### VALIDATION RULES\n1. **Document Type:** Must be Passport, Driving License, Aadhaar, or Voter ID parts.\n2. **Legibility:** Text must be readable.\n3. **Validity:** If the image is unrelated (e.g. a selfie, credit card), set \"is_valid_id\": false.\n\n### EXPIRY LOGIC\n- **Expiry Date:** Extract \"Valid Thru\" or \"Expiry\".\n- **Is Expired:**\n  - If Expiry Date is found: Compare with Current Date: {{ $now.format('YYYY-MM-DD') }}\n  - If Expiry Date is NOT found: Set `is_expired: false` (Risk Precaution).\n\n### OUTPUT SCHEMA (Strict JSON)\n{\n  \"is_valid_id\": boolean,\n  \"rejection_reason\": \"string (or null)\",\n  \"doc_type\": \"string\",\n  \"full_name\": \"string (or null)\",\n  \"id_number\": \"string (or null)\",\n  \"dob\": \"YYYY-MM-DD (or null)\",\n  \"address\": \"string (or null)\",\n  \"expiry_date\": \"YYYY-MM-DD (or null)\",\n  \"is_expired\": boolean\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        -384
+      ],
+      "id": "be0926c3-803d-4311-9523-17d7a56e5a85",
+      "name": "ID Extractor",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const newItems = [];\n\n// Check if we have binary data\nif (items[0].binary) {\n  const binaryKeys = Object.keys(items[0].binary);\n\n  // Loop through every uploaded file (tender_document_0, tender_document_1...)\n  for (const key of binaryKeys) {\n    if (key.startsWith('id_document')) {\n      newItems.push({\n        json: {\n          // Keep the filename metadata for the AI to see\n          fileName: items[0].binary[key].fileName\n        },\n        binary: {\n          // RE-NAME every file to the standard name \"tender_document\"\n          // This ensures the OpenAI node always finds it.\n          id_document: items[0].binary[key]\n        }\n      });\n    }\n  }\n}\n\nreturn newItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -384
+      ],
+      "id": "e7645bf7-c93d-4e0c-b4c6-85e84a276948",
+      "name": "Multi Page Document Normalization"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        -384
+      ],
+      "id": "0366bb78-8f7b-4a80-80f9-a5a9e3d170c9",
+      "name": "Aggregate Data of Both Sides"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the list of extractions from the Aggregate node\nconst parts = items[0].json.data;\n\n// Initialize Master Profile\nlet merged = {\n  is_valid_id: false,\n  doc_type: null,\n  full_name: null,\n  id_number: null,\n  dob: null,\n  address: null,\n  expiry_date: null,\n  is_expired: false,\n  rejection_reason: null,\n};\n\n// Loop through parts\nfor (const part of parts) {\n  // 1. Get the base object\n  let p = part.json ? part.json : part;\n\n  // 2. UNWRAPPER: Dig for the actual data if it's nested (Fix for your issue)\n  // Your screenshot shows the data is inside output -> content[0] -> text\n  if (\n    p.output &&\n    p.output[0] &&\n    p.output[0].content &&\n    p.output[0].content[0] &&\n    p.output[0].content[0].text\n  ) {\n    p = p.output[0].content[0].text;\n  }\n  // Alternate: Sometimes it might be directly in 'text' or just 'content'\n  else if (p.text && typeof p.text === \"object\") {\n    p = p.text;\n  }\n\n  // 3. Now extract the fields (Same logic as before)\n  if (p.is_valid_id) {\n    merged.is_valid_id = true;\n    if (p.doc_type) merged.doc_type = p.doc_type;\n    if (p.full_name) merged.full_name = p.full_name;\n    if (p.id_number) merged.id_number = p.id_number;\n    if (p.dob) merged.dob = p.dob;\n    if (p.address) merged.address = p.address;\n    if (p.expiry_date) merged.expiry_date = p.expiry_date;\n\n    // If any side says it's expired, it is expired.\n    if (p.is_expired === true) merged.is_expired = true;\n  }\n}\n\n// Final Logic Check: If no expiry date found at all, assume expired\n// if (!merged.expiry_date) {\n//   merged.is_expired = true;\n// }\n\nreturn [{ json: merged }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        -384
+      ],
+      "id": "06ddbdf7-8300-44dc-acb5-2a1f310ffc1b",
+      "name": "Merge Both Side"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "image",
+              "imageType": "base64",
+              "binaryPropertyName": "utility_bill"
+            },
+            {
+              "content": "=You are a KYC Compliance Officer. Analyze the attached Utility Bill image.\n\n### CURRENT DATE\n{{ $now.format('YYYY-MM-DD') }}\n\n### EXTRACTION TARGETS\n1. **Customer Name:** Extract the name of the account holder.\n2. **Billing Address:** Extract the full address found on the bill.\n3. **Statement Date:** Extract the date the bill was issued (Format: YYYY-MM-DD).\n\n### VALIDATION RULES\n1. **Bill Type:** Identify if it is Electricity, Water, Gas, Internet, or \"Other\".\n2. **Recency Check (CRITICAL):**\n   - Calculate the age of the bill in days from the Current Date.\n   - If (Current Date - Statement Date) > 90 days, set `is_recent: false`.\n   - If <= 90 days, set `is_recent: true`.\n   - If no date is found, set `is_recent: false`.\n\n### OUTPUT SCHEMA (Strict JSON)\n{\n  \"is_valid_bill\": boolean,\n  \"rejection_reason\": \"string (or null)\",\n  \"bill_type\": \"string\",\n  \"customer_name\": \"string (or null)\",\n  \"billing_address\": \"string (or null)\",\n  \"statement_date\": \"YYYY-MM-DD\",\n  \"bill_age_days\": number (approx),\n  \"is_recent\": boolean\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        -96
+      ],
+      "id": "9d938d64-67a1-4420-ac5a-daf4949d8118",
+      "name": "Bill Extractor",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        80,
+        -112
+      ],
+      "id": "15bf923c-9064-4164-9c88-c2588021d9e1",
+      "name": "Merge Extractors"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=### DATA TO ANALYZE\n1. CLAIMED IDENTITY (User Input):\n   - Name: {{ $('KYC Form Submission').item.json.input_name }}\n   - Address: {{ $('KYC Form Submission').item.json.input_address }}\n\n2. ID DOCUMENT:\n   - Name: {{ $json.id_data.full_name }}\n   - Address: {{ $json.id_data.address }}\n\n3. UTILITY BILL:\n   - Name: {{ $json.bill_data.customer_name }}\n   - Address: {{ $json.bill_data.billing_address }}"
+            },
+            {
+              "role": "system",
+              "content": "=You are a Senior KYC Verification Officer (Human Level).\n**GOAL:** Validate the Applicant's identity by comparing \"Claims\" vs \"Evidence\".\n**MINDSET:** STRICT on identity, but REASONABLE on formatting.\n\n### VERIFICATION PROTOCOL (Execute Step-by-Step)\n\n**STEP 1: DATA COMPLETENESS CHECK**\n- Look at `Bill Address` and `ID Address`.\n- If \"null\", \"undefined\", or empty -> **MANUAL_REVIEW**. Reason: \"Address not legible, visual inspection required.\"\n\n**STEP 2: ECHO & NORMALIZE (CRITICAL)**\n- **COMMAND:** Convert ALL inputs to UPPERCASE mentally.\n- Write: \"Comparing Claimed Name [NAME] vs ID Name [NAME]...\"\n- **Ignore:** Titles (MR, MRS), Prefixes (S/O, W/O), and Case Differences.\n- **Standardize:** \"ST\"==\"STREET\", \"APT\"==\"FLAT\".\n\n**STEP 3: IDENTITY CHECK (Claim vs ID)**\n- Compare `Claimed Name` vs `ID Name` (In UPPERCASE).\n- **Verdict:**\n  - MATCH: Exact match or Phonetic match (e.g. \"JON\" vs \"JONATHAN\"). -> **PASS**.\n  - MISMATCH: Different First Name (e.g. \"SWAGATA\" vs \"ARGHA\"). -> **FAIL**.\n\n**STEP 4: ADDRESS CHECK (Claim vs Bill)**\n- Compare `Claimed Address` vs `Bill Address` (In UPPERCASE).\n- **Verdict:**\n  - MATCH: House Number AND Pin Code match. (Ignore City spelling/formatting). -> **PASS**.\n  - MISMATCH: Different House Number or Pin Code. -> **FAIL**.\n\n**STEP 5: BILL OWNERSHIP CHECK (The \"Family\" Rule)**\n- Compare `ID Name` vs `Bill Name` (In UPPERCASE).\n- **Case A (Self):** Names match. -> **Status: SELF**.\n- **Case B (Family):** First Names differ, but Last Names match (e.g. \"DEYSARKAR\"). -> **Status: FAMILY**.\n- **Case C (Stranger):** Completely different names. -> **Status: THIRD_PARTY**.\n\n### DECISION MATRIX\n1. **PASS:** Identity Matches + Address Matches + (Ownership is SELF or FAMILY).\n2. **MANUAL_REVIEW:** Missing Data OR Ambiguous Match (Risk 40-60).\n3. **FAIL:** Identity Mismatch OR Address Mismatch OR Third-Party Bill.\n\n### OUTPUT SCHEMA\n{\n  \"step_by_step_analysis\": \"string (REQUIRED: '1. Check nulls... 2. Normalized to UPPERCASE: [NAME] vs [NAME]... 3. Verdict...')\",\n  \"checks\": {\n    \"identity_confirmed\": boolean,\n    \"address_confirmed\": boolean,\n    \"bill_ownership_status\": \"string ('SELF', 'FAMILY', 'THIRD_PARTY')\"\n  },\n  \"kyc_status\": \"string ('PASS', 'FAIL', 'MANUAL_REVIEW')\",\n  \"risk_score\": \"number (0-100)\",\n  \"verdict_reason\": \"string\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        816,
+        -272
+      ],
+      "id": "186969b0-fcbc-4309-9325-19bea3131bc0",
+      "name": "KYC Judge",
+      "credentials": {
+        "openAiApi": {
+          "id": "JowygiMoSY8l1sx0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "132feb11-3b42-43b7-9503-854f978374e0",
+              "name": "id_data.doc_type",
+              "value": "={{ $json.doc_type }}",
+              "type": "string"
+            },
+            {
+              "id": "24117b1d-68d1-4a1b-a27b-ac9467c9d0d1",
+              "name": "id_data.full_name",
+              "value": "={{ $json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "bcffd904-41ee-4e9f-8140-7968eaad573a",
+              "name": "id_data.id_number",
+              "value": "={{ $json.id_number }}",
+              "type": "string"
+            },
+            {
+              "id": "36913ffb-bb4d-4c8b-ac90-247bc25ffd97",
+              "name": "id_data.dob",
+              "value": "={{ $json.dob }}",
+              "type": "string"
+            },
+            {
+              "id": "aea7367d-252d-41d3-96e8-20a21f95a335",
+              "name": "id_data.address",
+              "value": "={{ $json.address }}",
+              "type": "string"
+            },
+            {
+              "id": "e3588bdf-48eb-4cea-a7db-47b9c606643a",
+              "name": "id_data.expiry_date",
+              "value": "={{ $json.expiry_date }}",
+              "type": "string"
+            },
+            {
+              "id": "04d994b3-ffc5-44c3-8ceb-c609cabe664b",
+              "name": "id_data.is_expired",
+              "value": "={{ $json.is_expired }}",
+              "type": "boolean"
+            },
+            {
+              "id": "bc9a75ba-ed02-4166-a844-6e6bb82953a9",
+              "name": "bill_data.bill_type",
+              "value": "={{ $json.output[0].content[0].text.bill_type }}",
+              "type": "string"
+            },
+            {
+              "id": "921a6573-db1c-4262-92a7-c7aa8476964f",
+              "name": "bill_data.customer_name",
+              "value": "={{ $json.output[0].content[0].text.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "b9a4e4d4-ab9a-4122-b3ae-ed1da5738d74",
+              "name": "bill_data.billing_address",
+              "value": "={{ $json.output[0].content[0].text.billing_address }}",
+              "type": "string"
+            },
+            {
+              "id": "6424898f-ca1f-4b12-bc68-b06f0bcf5e33",
+              "name": "bill_data.statement_date",
+              "value": "={{ $json.output[0].content[0].text.statement_date }}",
+              "type": "string"
+            },
+            {
+              "id": "2b20ff02-6f5c-470e-9999-ee63ece64b05",
+              "name": "bill_data.bill_age_days",
+              "value": "={{ $json.output[0].content[0].text.bill_age_days }}",
+              "type": "number"
+            },
+            {
+              "id": "1ef19ee7-44a0-432f-99a6-41f7bf5a55d6",
+              "name": "bill_data.is_recent",
+              "value": "={{ $json.output[0].content[0].text.is_recent }}",
+              "type": "boolean"
+            },
+            {
+              "id": "1d78e553-5c20-4e76-9048-ac9f53cc44e1",
+              "name": "id_data.is_valid_id",
+              "value": "={{ $json.is_valid_id }}",
+              "type": "boolean"
+            },
+            {
+              "id": "bf742d19-9b62-4679-8ee1-723c08005a1a",
+              "name": "bill_data.is_valid_bill",
+              "value": "={{ $json.output[0].content[0].text.is_valid_bill }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        -112
+      ],
+      "id": "82d36ab1-1016-4aed-a17b-ac48775a6da6",
+      "name": "Data Noralization"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Access the ID and Bill data objects\n// Ensure your previous node outputs this structure\nconst id = items[0].json.id_data;\nconst bill = items[0].json.bill_data;\n\nlet status = \"PROCEED\";\nlet reason = \"Documents look valid. Proceeding to fuzzy match.\";\nlet subject = \"KYC Update: Processing\";\n\n// ------------------------------------------\n// LOGIC GATES (Order matters!)\n// ------------------------------------------\n\n// 1. Check ID Validity (Is it a real ID?)\nif (!id.is_valid_id) {\n  status = \"REJECT\";\n  reason = id.rejection_reason || \"The uploaded document does not appear to be a valid Government ID.\";\n  subject = \"KYC Failed: Invalid ID Document\";\n\n// 2. Check ID Expiry\n} else if (id.is_expired) {\n  status = \"REJECT\";\n  // Use the extracted expiry date if available for a better message\n  const expiryText = id.expiry_date ? `(Expired on ${id.expiry_date})` : \"\";\n  reason = `The provided Government ID is expired ${expiryText}. Please upload a valid ID.`;\n  subject = \"KYC Failed: ID Expired\";\n\n// 3. Check Bill Validity (Is it a real bill?)\n} else if (!bill.is_valid_bill) {\n  status = \"REJECT\";\n  reason = bill.rejection_reason || \"The uploaded document does not appear to be a valid Utility Bill.\";\n  subject = \"KYC Failed: Invalid Utility Bill\";\n\n// 4. Check Bill Recency (Is it > 90 days?)\n} else if (!bill.is_recent) {\n  status = \"REJECT\";\n  // Use the extracted date for context\n  const dateText = bill.statement_date ? `(Statement Date: ${bill.statement_date})` : \"\";\n  reason = `The Utility Bill is older than 90 days ${dateText}. Please upload a recent bill.`;\n  subject = \"KYC Failed: Bill Too Old\";\n}\n\n// ------------------------------------------\n// OUTPUT\n// ------------------------------------------\nreturn {\n  json: {\n    ...items[0].json, // Keep original data\n    validation_status: status,\n    rejection_reason: reason,\n    email_subject: subject\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -112
+      ],
+      "id": "2e8f0bdd-f9c0-46dd-8d9e-0f8366ac8263",
+      "name": "Documents Validity Checker"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "38b5bce2-e59a-4a8e-bd9d-70e471e36a37",
+              "leftValue": "={{ $json.validation_status }}",
+              "rightValue": "REJECT",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        -112
+      ],
+      "id": "9f2faca2-ce0a-4d27-990b-0b2ee34bafea",
+      "name": "Validation Gate"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('KYC Form Submission').item.json.applicant_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "=<div style=\"font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f6f8; padding: 40px;\">\n    \n    <div style=\"background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;\">\n        \n        <div style=\"background-color: #D32F2F; padding: 20px; text-align: center;\">\n            <h2 style=\"color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;\">Application Status Update</h2>\n        </div>\n\n        <div style=\"padding: 40px 30px;\">\n            <p style=\"font-size: 16px; color: #333333; line-height: 1.6; margin-top: 0;\">\n                Dear Applicant,\n            </p>\n            <p style=\"font-size: 16px; color: #555555; line-height: 1.6;\">\n                We have reviewed the documents submitted for your KYC Verification. Unfortunately, we could not approve your application at this time.\n            </p>\n\n            <div style=\"background-color: #FEF2F2; border-left: 4px solid #EF4444; padding: 15px 20px; margin: 25px 0; border-radius: 4px;\">\n                <p style=\"font-size: 12px; font-weight: bold; color: #991B1B; text-transform: uppercase; margin: 0 0 5px 0;\">\n                    Reason for Rejection\n                </p>\n                <p style=\"font-size: 15px; color: #1F2937; margin: 0; font-weight: 500;\">\n                    {{ $json.rejection_reason }}\n                </p>\n            </div>\n\n            <p style=\"font-size: 16px; color: #555555; line-height: 1.6;\">\n                Please ensure your documents are valid, legible, and meet our recency requirements (Utility bills must be under 90 days old).\n            </p>\n\n            <div style=\"text-align: center; margin-top: 35px;\">\n                <a href=\"https://n8n.myaastha.in/form-test/kyc-verification\" style=\"background-color: #1a73e8; color: #ffffff; text-decoration: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; font-size: 16px; display: inline-block;\">\n                    Re-upload Documents\n                </a>\n            </div>\n        </div>\n\n        <div style=\"background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;\">\n            <p style=\"font-size: 12px; color: #999999; margin: 0;\">\n                Secure Compliance Team<br>\n                Automated System Notification\n            </p>\n        </div>\n    </div>\n</div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        640,
+        224
+      ],
+      "id": "71468ebe-d032-4168-a422-037f559d98dd",
+      "name": "Rejection Email",
+      "webhookId": "99aa0297-bfba-4137-b44b-095ae114a6cf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output[0].content[0].text.kyc_status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c48dbc70-2b81-4743-92d8-353b137cd12c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Approval"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "26c6adcb-4e2c-4788-863b-f31644387eb2",
+                    "leftValue": "={{ $json.output[0].content[0].text.kyc_status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rejection"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9f6dbe01-de1c-43c0-8b50-c9bca03b7574",
+                    "leftValue": "={{ $json.output[0].content[0].text.kyc_status }}",
+                    "rightValue": "MANUAL_REVIEW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Escalation"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1120,
+        -288
+      ],
+      "id": "09b8607d-10ae-49bd-877f-fbeb197f7f26",
+      "name": "Judgement Router"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('KYC Form Submission').item.json.applicant_email }}",
+        "subject": "KYC Verification Successful: Identity Confirmed",
+        "message": "=<div style=\"font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f6f8; padding: 40px;\">          <div style=\"background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;\">                  <div style=\"background-color: #2E7D32; padding: 20px; text-align: center;\">             <h2 style=\"color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;\">Verification Complete</h2>         </div>          <div style=\"padding: 40px 30px; text-align: center;\">                          <div style=\"background-color: #E8F5E9; color: #2E7D32; width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 20px;\">                 ✓             </div>              <p style=\"font-size: 18px; color: #333333; margin: 0 0 10px 0; font-weight: bold;\">                 Identity Verified Successfully             </p>              <p style=\"font-size: 15px; color: #555555; line-height: 1.6; margin-bottom: 30px;\">                 Dear Applicant,<br><br>                 We are pleased to inform you that your KYC documents have been successfully verified.              </p>              <div style=\"background-color: #F5F5F5; border-radius: 4px; padding: 15px; text-align: left; margin-bottom: 30px;\">                 <p style=\"margin: 5px 0; font-size: 14px; color: #555555;\"><strong>Verdict Reason:</strong> {{ $json.output[0].content[0].text.verdict_reason }}</p>                 <p style=\"margin: 5px 0; font-size: 14px; color: #555555;\"><strong>Risk Score:</strong> {{ $json.output[0].content[0].text.risk_score }}/100 (Safe)</p>             </div>                      </div>          <div style=\"background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;\">             <p style=\"font-size: 12px; color: #999999; margin: 0;\">                 Secure Compliance Team<br>                 Automated Verification System             </p>         </div>     </div> </div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        -416
+      ],
+      "id": "e68c1533-2ca8-44dc-afdb-c710a69a06c6",
+      "name": "Send Approval Email",
+      "webhookId": "645d3294-6c73-4c58-a4dd-c26fc94f2384",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "email2argha@gmail.com",
+        "subject": "=⚠️ REVIEW REQUIRED: KYC Application - {{ $('KYC Form Submission').item.json.input_name }}",
+        "message": "=<div style=\"font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f6f8; padding: 40px;\">\n\n    <div style=\"background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;\">\n\n        <div style=\"background-color: #F57C00; padding: 20px; text-align: center;\">\n            <h2 style=\"color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;\">Manual Review Required</h2>\n        </div>\n\n        <div style=\"padding: 40px 30px;\">\n            <p style=\"font-size: 16px; color: #333333; margin-top: 0;\">\n                <strong>Action Required:</strong> The automated system could not definitively verify this applicant.\n            </p>\n\n            <div style=\"background-color: #FFF3E0; border-left: 4px solid #FF9800; padding: 15px; margin: 20px 0;\">\n                <p style=\"margin: 5px 0; font-size: 14px;\"><strong>Applicant Name:</strong> {{ $('KYC Form Submission').item.json.input_name }}</p>\n                <p style=\"margin: 5px 0; font-size: 14px;\"><strong>Applicant Email:</strong> <a href=\"mailto:{{ $('KYC Form Submission').item.json.applicant_email }}\" style=\"color: #E65100; text-decoration: none;\">{{ $('KYC Form Submission').item.json.applicant_email }}</a></p>\n                <p style=\"margin: 5px 0; font-size: 14px;\"><strong>Applicant Address:</strong> {{ $('KYC Form Submission').item.json.input_address }}</p>\n                \n                <hr style=\"border: 0; border-top: 1px solid #FFCC80; margin: 10px 0;\">\n                \n                <p style=\"margin: 5px 0; font-size: 14px;\"><strong>Risk Score:</strong> {{ $('Judgement Router').item.json.output[0].content[0].text.risk_score }}/100</p>\n                <p style=\"margin: 5px 0; font-size: 14px; color: #BF360C;\"><strong>AI Verdict:</strong> {{ $('Judgement Router').item.json.output[0].content[0].text.verdict_reason }}</p>\n            </div>\n\n            <p style=\"font-size: 15px; color: #555555; line-height: 1.6;\">\n                <strong>Why was this flagged?</strong><br>\n                The AI detected discrepancies (e.g., blurry text, partial name match, or third-party bill) that exceed the auto-approval threshold but do not warrant an automatic ban.\n            </p>\n\n            <p style=\"font-size: 15px; color: #555555; line-height: 1.6;\">\n                <strong>Next Steps:</strong>\n                <ol style=\"color: #555555; padding-left: 20px;\">\n                    <li>Review the attached <strong>ID Document</strong> and <strong>Utility Bill</strong>.</li>\n                    <li>Verify if the visible data matches the applicant's claim above.</li>\n                    <li>Reply to this thread with <strong>APPROVE</strong> or <strong>REJECT</strong>.</li>\n                </ol>\n            </p>\n        </div>\n\n        <div style=\"background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;\">\n            <p style=\"font-size: 12px; color: #999999; margin: 0;\">\n                KYC Automation Bot<br>\n                Escalation Level 2\n            </p>\n        </div>\n    </div>\n</div>",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "={{ Object.keys($binary).join(',') }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        160
+      ],
+      "id": "ed08fdba-faff-4fcf-b35d-8d082b1d7d2b",
+      "name": "Escalate to Manager",
+      "webhookId": "f95dfab0-7874-4280-b866-e793dd999e05",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('KYC Form Submission').item.json.applicant_email }}",
+        "subject": "Update on your KYC Application - Action Required",
+        "message": "=<div style=\"font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f6f8; padding: 40px;\">          <div style=\"background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;\">                  <div style=\"background-color: #D32F2F; padding: 20px; text-align: center;\">             <h2 style=\"color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px;\">Application Status Update</h2>         </div>          <div style=\"padding: 40px 30px;\">             <p style=\"font-size: 16px; color: #333333; line-height: 1.6; margin-top: 0;\">                 Dear <strong>{{ $('KYC Form Submission').item.json.input_name }}</strong>,             </p>             <p style=\"font-size: 16px; color: #555555; line-height: 1.6;\">                 We have reviewed your KYC application. Unfortunately, we are unable to verify your identity documents at this time.             </p>              <div style=\"background-color: #FEF2F2; border-left: 4px solid #EF4444; padding: 15px 20px; margin: 25px 0; border-radius: 4px;\">                 <p style=\"font-size: 12px; font-weight: bold; color: #991B1B; text-transform: uppercase; margin: 0 0 5px 0;\">                     Reason for Rejection                 </p>                 <p style=\"font-size: 15px; color: #1F2937; margin: 0; font-weight: 500;\">        {{ $json.output[0].content[0].text.verdict_reason || \"Document validation failed.\" }}                             </p>             </div>              <p style=\"font-size: 16px; color: #555555; line-height: 1.6;\">                 <strong>Next Steps:</strong><br>                 Please ensure your documents are clear, valid, and match the information provided in the application form.             </p>              <div style=\"text-align: center; margin-top: 35px;\">                 <a href=\"#\" style=\"background-color: #D32F2F; color: #ffffff; text-decoration: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; font-size: 16px; display: inline-block;\">                     Retry Application                 </a>             </div>         </div>          <div style=\"background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;\">             <p style=\"font-size: 12px; color: #999999; margin: 0;\">                 Secure Compliance Team<br>                 Automated Verification System             </p>         </div>     </div> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        -272
+      ],
+      "id": "62adedb6-2d44-4ed0-854b-d4fff525f160",
+      "name": "Send Rejection Email",
+      "webhookId": "fdafdbb8-6613-4f0e-bb38-81af81eac97f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the Verdict Data (Current Input)\n// We preserve the JSON data (Risk Score, Verdict) passed from the Judge/Router\nconst verdictJson = items[0].json;\n\n// 2. Get the Original Files DIRECTLY from the Trigger Node\n// We use the specific node name \"KYC Form Submission\" to avoid index errors\n// Make sure the name inside $('...') matches your Trigger Node name EXACTLY\nconst triggerItems = $('KYC Form Submission').all();\n\n// 3. Create a container for all files\nconst allBinaries = {};\n\n// 4. Loop through the trigger items to gather all files\ntriggerItems.forEach((item, index) => {\n  if (item.binary) {\n    Object.keys(item.binary).forEach(key => {\n      // Create a unique key (e.g., id_document_0, utility_bill_0)\n      const uniqueKey = `${key}_${index}`;\n      allBinaries[uniqueKey] = item.binary[key];\n    });\n  }\n});\n\n// 5. Return the combined Item\nreturn [\n  {\n    json: verdictJson,\n    binary: allBinaries\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        -64
+      ],
+      "id": "9df49948-4e66-4e01-b0ef-abb54586dfe3",
+      "name": "Prepare All Attachment",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "content": "# 🏦 AI Agent: KYC Verification Pipeline \n**Architecture:** Parallel Vision Extraction ➔ Deterministic Validation ➔ 3-Way Fuzzy Matching\n\n**Key Features:**\n* **Multi-Page Synthesis:** Seamlessly handles Front/Back ID scans (Aadhaar/Licenses).\n* **Deterministic Guardrails:** Hard-coded logic for Expiry & Recency (Zero AI Hallucinations on dates).\n* **Triangle Verification:** Validates **User Claims** ↔ **ID Document** ↔ **Bill Evidence**.\n* **Family Rule Logic:** Professionally approves spousal/parental utility bills via Surname checking.\n* **Smart Escalation:** Automatically bundles all evidence for Human Review if AI confidence is mid-range.",
+        "height": 256,
+        "width": 752,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1072,
+        -848
+      ],
+      "typeVersion": 1,
+      "id": "ea5f1356-4432-4fb1-84dd-595dab70219e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 📥 Ingestion Layer\n* **Node:** KYC Form Submission\n* **Function:** Captures User Claims (Name/Address) and Binary Documents.\n* **Normalization:** Splits multi-file uploads into individual items for the vision model.",
+        "height": 624,
+        "width": 432,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1072,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "c8f4e309-a25c-4e27-9972-b580c110250b",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### 👁️ Vision Extraction Engine\n* **ID Extractor:** GPT-4o Vision processes Front & Back ID pages.\n* **Bill Extractor:** Processes Utility Proof to calculate recency and address.\n* **Aggregation:** JS Code Node synthesizes disparate ID pages into one complete \"Identity Profile.\"",
+        "height": 624,
+        "width": 1008,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -624,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "c1d878a7-5828-4246-ae5e-f8fda83198fc",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### 🛡️ Guardrail Logic (Security Gate)\n* **Validity Checker:** Hard-coded JS comparison for Expiry and 90-day recency.\n* **Fail-Fast:** Instantly triggers rejection emails for expired IDs, saving AI Judge token costs.",
+        "height": 912,
+        "width": 384,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        400,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "ad823d0b-854e-4771-9f1a-d4c93f7ea489",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### 🧠 KYC Judge (Human-Level Matching)\n* **Fuzzy Matching:** Handles typos, formatting (St vs Street), and phonetic variations.\n* **The Family Rule:** If User ID ≠ Bill Name, checks for matching Surnames/Lineage.\n* **Router:** Determines final status: PASS, FAIL, or MANUAL_REVIEW.",
+        "height": 480,
+        "width": 544,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        800,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "e56b4bcd-12fa-4f5b-a74e-d62118495e4d",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "### 📧 Action & Communication Layer\n* **Pass/Fail:** Dynamic HTML emails sent directly to the applicant with verdict details.\n* **Manual Escalation:** A specialized Code Node fetches raw binary data globally from the Trigger to attach ALL files to a Compliance Manager's inbox.",
+        "height": 896,
+        "width": 400,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1376,
+        -592
+      ],
+      "typeVersion": 1,
+      "id": "9f8c4761-b0c6-485a-972d-74d5352b73a6",
+      "name": "Sticky Note5"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "KYC Form Submission": {
+      "main": [
+        [
+          {
+            "node": "Multi Page Document Normalization",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bill Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Multi Page Document Normalization": {
+      "main": [
+        [
+          {
+            "node": "ID Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ID Extractor": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Data of Both Sides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Data of Both Sides": {
+      "main": [
+        [
+          {
+            "node": "Merge Both Side",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bill Extractor": {
+      "main": [
+        [
+          {
+            "node": "Merge Extractors",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Both Side": {
+      "main": [
+        [
+          {
+            "node": "Merge Extractors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Extractors": {
+      "main": [
+        [
+          {
+            "node": "Data Noralization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Noralization": {
+      "main": [
+        [
+          {
+            "node": "Documents Validity Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Documents Validity Checker": {
+      "main": [
+        [
+          {
+            "node": "Validation Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Gate": {
+      "main": [
+        [
+          {
+            "node": "KYC Judge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KYC Judge": {
+      "main": [
+        [
+          {
+            "node": "Judgement Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Judgement Router": {
+      "main": [
+        [
+          {
+            "node": "Send Approval Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare All Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate to Manager": {
+      "main": [
+        []
+      ]
+    },
+    "Prepare All Attachment": {
+      "main": [
+        [
+          {
+            "node": "Escalate to Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3a5282ba-3e24-47d3-b803-208fb1e4c0ca",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "PY6znGp0x1atFiHf",
+  "tags": [
+    {
+      "updatedAt": "2025-11-24T16:14:46.581Z",
+      "createdAt": "2025-11-24T16:14:46.581Z",
+      "id": "B0YNEd6RvqhlLcgf",
+      "name": "banking"
+    },
+    {
+      "updatedAt": "2025-12-08T03:18:07.794Z",
+      "createdAt": "2025-12-08T03:18:07.794Z",
+      "id": "F0RubMMv38szFfbA",
+      "name": "fintech"
+    },
+    {
+      "updatedAt": "2025-11-24T16:14:37.868Z",
+      "createdAt": "2025-11-24T16:14:37.868Z",
+      "id": "sYzNF35VioIESd2z",
+      "name": "ai agent"
+    }
+  ]
+}
