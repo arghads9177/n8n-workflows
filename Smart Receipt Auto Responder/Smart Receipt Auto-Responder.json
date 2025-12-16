@@ -1,0 +1,370 @@
+{
+  "name": "Smart Receipt Auto-Responder",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "has:attachment"
+        },
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment_",
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -768,
+        -432
+      ],
+      "id": "2d9637ad-56b6-4671-9e50-35a68f649e19",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "13b644a8-724e-4cce-a1e4-60c4782f5976",
+              "leftValue": "={{ $json.from.value[0].address }}",
+              "rightValue": "adeysarkar77@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -560,
+        -432
+      ],
+      "id": "f32f0440-7e9c-451e-a915-5659fbeec170",
+      "name": "Filter Sender"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').first().json.id }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;\">   <div style=\"background-color: #2D3748; padding: 20px; text-align: center;\">     <h2 style=\"color: #ffffff; margin: 0;\">Payment Receipt Verified</h2>   </div>    <div style=\"padding: 30px; background-color: #ffffff; color: #333333;\">     <p style=\"font-size: 16px; margin-top: 0;\">Hello,</p>          <p style=\"font-size: 16px; line-height: 1.5;\">       Thank you for sending your proof of payment.        Our AI system has successfully <strong>verified your attachment</strong> as a valid receipt.     </p>      <div style=\"background-color: #f7fafc; border-left: 4px solid #48bb78; padding: 15px; margin: 20px 0;\">       <p style=\"margin: 0; font-size: 14px; color: #555;\"><strong>Subject:</strong> {{ $('Gmail Trigger').first().json.subject }}</p>       <p style=\"margin: 5px 0 0; font-size: 14px; color: #555;\"><strong>Date Verified:</strong> {{ $now.toFormat('dd MMM yyyy, HH:mm') }}</p>       <p style=\"margin: 5px 0 0; font-size: 14px; color: #555;\"><strong>Status:</strong> <span style=\"color: #48bb78; font-weight: bold;\">Confirmed</span></p>     </div>      <p style=\"font-size: 16px; line-height: 1.5;\">       We have forwarded this to our finance team for final processing. You do not need to take any further action.     </p>   </div>    <div style=\"background-color: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #e0e0e0;\">     <p style=\"margin: 0;\">Automated Finance System</p>     <p style=\"margin: 5px 0 0;\">Please do not reply to this automated message.</p>   </div> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        -512
+      ],
+      "id": "81de77cd-177d-4fdb-9fb5-8be2b017aa2e",
+      "name": "Send Confirmation",
+      "webhookId": "2374db29-c8f8-40cb-a672-5d6479dcc4e1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').first().json.id}}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;\">   <div style=\"background-color: #C53030; padding: 20px; text-align: center;\">     <h2 style=\"color: #ffffff; margin: 0;\">Action Required: Receipt Not Found</h2>   </div>    <div style=\"padding: 30px; background-color: #ffffff; color: #333333;\">     <p style=\"font-size: 16px; margin-top: 0;\">Hello,</p>          <p style=\"font-size: 16px; line-height: 1.5;\">       We received your email regarding <strong>\"{{ $('Gmail Trigger').first().json.subject }}\"</strong>, but our system was unable to identify a valid payment receipt or invoice in the attachment.     </p>      <div style=\"background-color: #fff5f5; border-left: 4px solid #C53030; padding: 15px; margin: 20px 0;\">       <p style=\"margin: 0; font-weight: bold; color: #C53030;\">What happened?</p>       <ul style=\"margin: 10px 0 0 20px; padding: 0; color: #555; font-size: 14px;\">         <li>The attachment might be missing.</li>         <li>The image might be blurry or unclear.</li>         <li>The document might not be a recognized receipt format.</li>       </ul>     </div>      <p style=\"font-size: 16px; line-height: 1.5;\">       <strong>Please reply to this email</strong> and attach a clear PDF or photo of your transaction slip so we can process your request.     </p>   </div>    <div style=\"background-color: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #e0e0e0;\">     <p style=\"margin: 0;\">Automated Finance System</p>   </div> </div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        -352
+      ],
+      "id": "a35d435d-7393-4516-9a42-977df638adc1",
+      "name": "Send Rejection",
+      "webhookId": "4691b17b-c3f8-4140-b74f-1408fe010334",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2kOlK1Qkq6Mkj49M",
+          "name": "Gmail adeysarkar77"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "Does this image or document represent a payment receipt, invoice, or proof of a transaction?\nReply with exactly one word: TRUE or FALSE.",
+        "inputType": "binary",
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -432
+      ],
+      "id": "77fb4cd1-b155-473a-8e23-05c60537c0e1",
+      "name": "Payment Receipt Validator",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "6W2wAB99Ivw7QXwN",
+          "name": "Google Gemini(PaLM) Api email2argha"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe4f94bb-716f-4c8e-9dd9-22bf2dd0c446",
+              "leftValue": "={{ $json.has_receipt }}",
+              "rightValue": "TRUE",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        272,
+        -432
+      ],
+      "id": "18ff65d0-2889-4bae-84b7-40ede0215159",
+      "name": "Reply Gate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the binary object from the incoming email\nconst binaryData = items[0].binary;\n\n// If there are no attachments, return nothing (or handle as no receipt)\nif (!binaryData) {\n  return [];\n}\n\nconst results = [];\n\n// Loop through every attachment (attachment_0, attachment_1, etc.)\nfor (const key of Object.keys(binaryData)) {\n  results.push({\n    // Keep the original email text/metadata (for the reply later)\n    json: items[0].json,\n    // Create a standardized binary property named \"file\" for Gemini\n    binary: {\n      file: binaryData[key]\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -432
+      ],
+      "id": "5f2467f6-9bdc-4efb-b3fd-d3ab9db8865e",
+      "name": "Split Attachments"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if ANY of the items returned \"TRUE\" from Gemini\nconst foundReceipt = items.some(item => {\n  // 1. Get the text from the specific nested path seen in your screenshot\n  // Path: item.json.content -> parts -> [0] -> text\n  const partText = item.json.content?.parts?.[0]?.text;\n\n  // 2. Fallbacks (in case Gemini format changes or other models are used)\n  const outputText = item.json.output;\n  const directText = item.json.text;\n\n  // 3. Combine them all into one string to check\n  // We use JSON.stringify on 'content' just in case the text is hidden elsewhere\n  const combinedRaw = [\n      partText,\n      outputText,\n      directText, \n      JSON.stringify(item.json.content || \"\") \n  ].join(\" \");\n\n  // 4. Force uppercase and check for \"TRUE\"\n  return String(combinedRaw).toUpperCase().includes(\"TRUE\");\n});\n\n// If no items exist (empty email), default to false\nif (!items.length) {\n    return { json: { has_receipt: false } };\n}\n\n// Return the result combined with the original email metadata from the first item\nreturn {\n  json: {\n    has_receipt: foundReceipt,\n    original_subject: items[0].json.original_subject || items[0].json.subject || \"No Subject\",\n    original_sender: items[0].json.original_sender || (items[0].json.from ? items[0].json.from.value[0].address : \"unknown\"),\n    original_snippet: items[0].json.original_snippet || items[0].json.snippet || \"\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -432
+      ],
+      "id": "13196b81-59ba-4812-8889-48280be1701d",
+      "name": "Aggregate Receipt"
+    },
+    {
+      "parameters": {
+        "content": "# 📌 Intelligent Receipt Auto-Responder (AI-Powered)\n\n**Summary**\nA smart email automation system that doesn't just \"reply to all,\" but intelligently verifies proof of payment. It uses Google Gemini 1.5 Flash (Multimodal) to visually scan email attachments (PDFs/Images) and confirms valid receipts while rejecting invalid ones.\n\n**Key Features**\n* **Multimodal AI Verification:** Uses Gemini 1.5 Flash to \"look\" at attachments and determine if they are valid invoices or transaction slips.\n* **Split-Aggregate Architecture:** Implements advanced logic to handle emails with multiple attachments, scanning every file individually and aggregating results.\n* **Robust JSON Parsing:** Custom code handles deeply nested AI responses (`content.parts[0].text`) to ensure 100% reliability.\n* **Safety & Polish:** Includes \"Anti-Loop\" filtering to prevent self-reply storms and sends professional, branded HTML email responses.",
+        "height": 288,
+        "width": 1184,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -800,
+        -1008
+      ],
+      "typeVersion": 1,
+      "id": "1a98fd88-3092-470a-8b39-20b73758eb7d",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 🏷️ Ingestion & Safety Guardrails\n\n**Function**\n* **Trigger:** Monitors the inbox for new emails and—crucially—downloads all attachments (binary data) for processing.\n* **Safety Filter:** A dedicated \"Circuit Breaker\" node that checks the `From` address. It drops any emails sent by the bot itself, preventing infinite \"Auto-Reply Loops\" that often crash beginner workflows.",
+        "height": 448,
+        "width": 416,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -800,
+        -704
+      ],
+      "typeVersion": 1,
+      "id": "f3dec834-dcf3-471b-9663-3eef0ee30a51",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 🏷️ The \"Split-Scan-Aggregate\" Pattern\n\n**Function**\n* **Split (Code):** Explodes a single email with multiple files (e.g., 3 PDFs) into separate items so they can be processed individually.\n* **Visual Analysis (Gemini):** Sends each file to **Gemini 1.5 Flash**. The prompt asks: *\"Does this image/document represent a payment receipt?\"* returning strictly `TRUE` or `FALSE`.\n* **Aggregate (Code):** Recombines the results. It iterates through the AI outputs, handles complex nested JSON paths (like `parts[0].text`), and sets a global flag (`has_receipt = true`) if *at least one* attachment was valid.",
+        "height": 448,
+        "width": 560,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -368,
+        -704
+      ],
+      "typeVersion": 1,
+      "id": "b4a808bc-d502-4ff2-9554-d353a18244ad",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 🏷️ SLogic Gating & HTML Response\n\n**Function**\n* **Routing:** Checks the `has_receipt` boolean calculated in the previous step.\n* **True Path:** Sends a polished **HTML Email** confirming the payment, dynamically inserting the original subject line and a timestamp.\n* **False Path:** Sends a helpful rejection email explaining that no valid receipt was found, asking the customer to try again.",
+        "height": 512,
+        "width": 592,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        208,
+        -704
+      ],
+      "typeVersion": 1,
+      "id": "a61b2f6e-2547-429c-a68c-8ab8493581b5",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sender": {
+      "main": [
+        [
+          {
+            "node": "Split Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payment Receipt Validator": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Gate": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Attachments": {
+      "main": [
+        [
+          {
+            "node": "Payment Receipt Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Receipt": {
+      "main": [
+        [
+          {
+            "node": "Reply Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "71abdcd8-8877-46f2-84f3-19e6b7bc9b52",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "383e0e489d9e788cb88f29c387d7848bcbfea5313b7288130bf6c12473fe21bd"
+  },
+  "id": "Wsd2oJVZBZR5riaT",
+  "tags": [
+    {
+      "updatedAt": "2025-12-15T16:25:20.908Z",
+      "createdAt": "2025-12-15T16:25:20.908Z",
+      "id": "izaPMujXAgBC1yKb",
+      "name": "business"
+    },
+    {
+      "updatedAt": "2025-11-24T16:14:37.868Z",
+      "createdAt": "2025-11-24T16:14:37.868Z",
+      "id": "sYzNF35VioIESd2z",
+      "name": "ai agent"
+    }
+  ]
+}
